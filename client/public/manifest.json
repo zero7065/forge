@@ -1,0 +1,30 @@
+{
+  "name": "PRIMORDEX",
+  "short_name": "PRIMORDEX",
+  "description": "Sovereign AI Operating System by Jadai Studios",
+  "start_url": "/",
+  "display": "standalone",
+  "background_color": "#0a0a0a",
+  "theme_color": "#C9A84C",
+  "orientation": "portrait-primary",
+  "icons": [
+    {
+      "src": "/sigil.svg",
+      "sizes": "any",
+      "type": "image/svg+xml",
+      "purpose": "any maskable"
+    }
+  ],
+  "categories": ["productivity", "utilities", "developer"],
+  "shortcuts": [
+    {
+      "name": "The Forge",
+      "short_name": "Forge",
+      "description": "Raw creation chamber",
+      "url": "/dashboard?chamber=forge",
+      "icons": [{ "src": "/sigil.svg", "sizes": "192x192" }]
+    },
+    { "name": "War Room", "short_name": "War Room", "description": "Strategy & execution", "url": "/dashboard?chamber=war", "icons": [{ "src": "/sigil.svg", "sizes": "192x192" }] },
+    { "name": "The Mirror", "short_name": "Mirror", "description": "Prime interface", "url": "/dashboard?chamber=mirror", "icons": [{ "src": "/sigil.svg", "sizes": "192x192" }] }
+  ]
+}

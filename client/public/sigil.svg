@@ -1,0 +1,46 @@
+<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 200 200">
+  <defs>
+    <filter id="glow" x="-50%" y="-50%" width="200%" height="200%">
+      <feGaussianBlur stdDeviation="4" result="coloredBlur"/>
+      <feMerge>
+        <feMergeNode in="coloredBlur"/>
+        <feMergeNode in="SourceGraphic"/>
+      </feMerge>
+    </filter>
+  </defs>
+  
+  <!-- Seed of Life / Flower of Life -->
+  <g filter="url(#glow)" stroke="#C9A84C" stroke-width="1.5" fill="none">
+    <!-- Center circle -->
+    <circle cx="100" cy="100" r="25"/>
+    
+    <!-- 6 surrounding circles (Seed of Life) -->
+    <circle cx="100" cy="50" r="25"/>
+    <circle cx="143.3" cy="75" r="25"/>
+    <circle cx="143.3" cy="125" r="25"/>
+    <circle cx="100" cy="150" r="25"/>
+    <circle cx="56.7" cy="125" r="25"/>
+    <circle cx="56.7" cy="75" r="25"/>
+    
+    <!-- Outer ring (Flower of Life) -->
+    <circle cx="100" cy="0" r="25" opacity="0.6"/>
+    <circle cx="175" cy="50" r="25" opacity="0.6"/>
+    <circle cx="175" cy="150" r="25" opacity="0.6"/>
+    <circle cx="100" cy="200" r="25" opacity="0.6"/>
+    <circle cx="25" cy="150" r="25" opacity="0.6"/>
+    <circle cx="25" cy="50" r="25" opacity="0.6"/>
+    <circle cx="150" cy="25" r="25" opacity="0.6"/>
+    <circle cx="150" cy="175" r="25" opacity="0.6"/>
+    <circle cx="50" cy="25" r="25" opacity="0.6"/>
+    <circle cx="50" cy="175" r="25" opacity="0.6"/>
+    
+    <!-- Outer enclosing circle -->
+    <circle cx="100" cy="100" r="95" stroke-dasharray="8,4" opacity="0.8"/>
+  </g>
+  
+  <!-- Central sigil mark -->
+  <g fill="#C9A84C" opacity="0.9">
+    <path d="M100 60 L100 140 M80 100 L120 100" stroke="#C9A84C" stroke-width="3" stroke-linecap="round" fill="none"/>
+    <circle cx="100" cy="100" r="8"/>
+  </g>
+</svg>

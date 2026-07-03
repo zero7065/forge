@@ -1,0 +1,5 @@
+{
+  "name": "The Forge",
+  "description": "A personal AI cockpit for controlling local LLMs via Ollama, with integrated memory, learning, and multi-provider API fallback. Built by Jadai Studios.",
+  "requestFramePermissions": []
+}
