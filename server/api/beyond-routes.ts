@@ -6,7 +6,7 @@ const router = Router();
 const db = getDatabase();
 
 // =====================================================
-// PRIMORDEX PROJECTS
+// BEYOND PROJECTS
 // =====================================================
 
 router.get('/projects', requireAuth, async (req: Request, res: Response) => {
@@ -54,4 +54,4 @@ router.get('/hire/specs', requireAuth, async (req: Request, res: Response) => {
   }
 });
 
-export { router as primordexRoutes };
+export { router as beyondRoutes };

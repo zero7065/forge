@@ -2,6 +2,9 @@ import dotenv from 'dotenv';
 import path from 'path';
 import { fileURLToPath } from 'url';
 import Database from 'better-sqlite3';
+import { createChildLogger } from './logger.js';
+
+const log = createChildLogger('database');
 
 const __filename = fileURLToPath(import.meta.url);
 const __dirname = path.dirname(__filename);
@@ -313,7 +316,31 @@ function initializeSchema() {
   `;
 
   db.exec(schema);
-  console.log('Database schema initialized');
+
+  // Performance indexes
+  const indexes = `
+    CREATE INDEX IF NOT EXISTS idx_users_email ON users(email);
+    CREATE INDEX IF NOT EXISTS idx_users_role ON users(role);
+    CREATE INDEX IF NOT EXISTS idx_sessions_user_id ON sessions(user_id);
+    CREATE INDEX IF NOT EXISTS idx_sessions_token ON sessions(token);
+    CREATE INDEX IF NOT EXISTS idx_sessions_expires ON sessions(expires_at);
+    CREATE INDEX IF NOT EXISTS idx_projects_user_id ON projects(user_id);
+    CREATE INDEX IF NOT EXISTS idx_projects_updated ON projects(updated_at);
+    CREATE INDEX IF NOT EXISTS idx_prime_patterns_user ON prime_patterns(user_id);
+    CREATE INDEX IF NOT EXISTS idx_prime_patterns_ts ON prime_patterns(timestamp);
+    CREATE INDEX IF NOT EXISTS idx_core_memory_user ON core_memory(user_id);
+    CREATE INDEX IF NOT EXISTS idx_core_memory_ts ON core_memory(timestamp);
+    CREATE INDEX IF NOT EXISTS idx_audit_log_actor ON audit_log(actor);
+    CREATE INDEX IF NOT EXISTS idx_audit_log_action ON audit_log(action);
+    CREATE INDEX IF NOT EXISTS idx_audit_log_created ON audit_log(created_at);
+    CREATE INDEX IF NOT EXISTS idx_usage_tracking_user ON usage_tracking(user_id, metric, period);
+    CREATE INDEX IF NOT EXISTS idx_knowledge_entries_topic ON knowledge_entries(topic);
+    CREATE INDEX IF NOT EXISTS idx_subscriptions_user ON subscriptions(user_id, status);
+    CREATE INDEX IF NOT EXISTS idx_learning_states_user ON learning_states(user_id);
+  `;
+  db.exec(indexes);
+
+  log.info('Database schema initialized with indexes');
 }
 
 export function closeDatabase() {

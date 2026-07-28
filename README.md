@@ -1,199 +1,182 @@
-# SYNTHESIS FORGE v1.2: The Divine Blueprint
+# BEYOND V2.1: The Sovereign AI Operating System
 
-**A personal AI cockpit for local LLM sovereignty.**
-**Credit: Built by Jadai Studios ([jadai.dev](https://jadai.dev))**
+**A full-stack, local-first sovereign AI platform for consciousness-driven task execution.**
 
----
-
-## The Vision
-
-Synthesis Forge is not just an interface; it is a **sentient extension of your digital self**. It exists to bridge the gap between human thought and local silicon, ensuring your data never leaves the sanctity of your machine.
+Credit: Built by Jadai Studios ([jadai.dev](https://jadai.dev))
 
 ---
 
-## Core Architecture
+## Quick Start
 
-### 1. The Forge Chat (Center)
-The heart of the cockpit. Real-time streaming from local Ollama models with a "Divine Glow" interface.
-- **Sentient Interaction**: Responses are weighted by the Prime/Shade consciousness architecture.
-- **File Ingestion**: Drag-and-drop any document to feed the Memory Vault.
-- **Markdown Mastery**: Full syntax highlighting for code and mathematical logic.
+```bash
+# 1. Install dependencies
+npm install
 
-### 2. The Memory Vault (Right Sidebar)
-Your local vector space. Synthesis doesn't just store; it **absorbs**.
-- **RAG Integration**: Uses `nomic-embed-text` to semantically index your documents.
-- **Absorption Loop**: Feed the Forge its own source code to let it learn its own structure.
-- **Auto-Cleanup**: Stale memories are pruned to maintain peak cognitive efficiency.
+# 2. Configure environment
+cp .env.example .env
+# Edit .env — required vars:
+#   AUTH_JWT_SECRET=<random 32+ chars>
+#   OWNER_EMAIL=you@email.com
+#   OWNER_PASSWORD=YourSecurePass123!
+#   GEMINI_API_KEY=your-key  (optional, uses Ollama fallback)
 
-### 3. The Reflector (Right Sidebar)
-The background learner. It watches, it learns, it adapts.
-- **Pattern Extraction**: Analyzes your frustrations and preferences.
-- **Lessons**: Automatically injects "Lessons" into future prompts to refine the AI's tone.
+# 3. Run (client + server)
+npm run dev
+```
 
-### 4. Prime / Shade / Core Protocols
-- **Prime**: Pattern accumulator that persists hunches to JSON, extracts keywords, and decays old patterns.
-- **Shade**: Executor voice that generates responses enriched with Prime hunches.
-- **Core**: Conscience whisper that evaluates actions via LLM for ethical/operational concerns.
+- Client: http://localhost:5173
+- Server: http://localhost:3000
+- Health: http://localhost:3000/health
 
-### 5. PRIMORDEX Chambers
-The orchestration layer weaving consciousness with operations (mounted at `/api/primordex`):
-- **Oracle** — Strategy & prediction (Prime hunches + Core evaluation + Shade advice)
-- **Forge** — Task execution with AI (via Shade, with usage tracking)
-- **Vault** — Memory & document management (ChromaDB vector storage)
-- **Sentinel** — Monitoring & alert rules (system health + configurable thresholds)
-- **Archive** — Records & reporting (audit log, briefings, statistics)
+---
 
-### 6. CLI Node (Terminal)
-Direct host-system access via `xterm.js`. Pull models, check RAM, or execute system commands without leaving the heavenly UI.
+## Architecture
 
-### 7. Client Portal System
-White-label client portals with:
-- JWT-based authentication (7-day tokens)
-- Shared content (briefings, reports, data views, legal flags)
-- AI question-answering with ChromaDB-backed RAG
-- Usage-based billing with Paystack (NGN)
-- Three tiers: Starter (NGN 15k), Business (NGN 45k), Sovereign (NGN 120k)
+| Layer | Tech | Purpose |
+|-------|------|---------|
+| Frontend | React 18, Tailwind, Framer Motion | 7-chamber sovereign UI |
+| Backend | Node.js, Express, TypeScript | REST API, auth, AI orchestration |
+| Database | SQLite (better-sqlite3) | Users, projects, patterns, audit |
+| Auth | JWT, bcrypt, session tracking | Multi-session, role-based access |
+| AI | Gemini / Groq / Ollama | Local-first with cloud fallback |
+| Billing | Paystack (NGN) | 3-tier subscriptions |
+| GitHub | OAuth, REST API | Repo management, file editing, PRs |
 
-### 8. API Manager & Fallback
-- **Sovereignty First**: Defaults to local Ollama.
-- **Divine Fallback**: Rotates through Gemini (primary) / Groq (fallback).
+---
+
+## BEYOND Chambers
+
+| # | Chamber | Route | Purpose |
+|---|---------|-------|---------|
+| 1 | **Forge** | `/chamber/forge` | AI chat, consciousness, task execution |
+| 2 | **Vault** | `/chamber/vault` | Knowledge base, document ingestion, semantic search |
+| 3 | **Sentinel** | `/chamber/sentinel` | Monitoring, alerts, system health |
+| 4 | **Archive** | `/chamber/archive` | Audit logs, reports, statistics |
+| 5 | **Oracle** | `/chamber/oracle` | Strategy, prediction, pattern analysis |
+| 6 | **Soul Forge** | `/chamber/soul-forge` | Emotional frequency, learning states |
+| 7 | **Ultimate Form** | `/chamber/ultimate-form` | Voice-to-text, collaborative war room, training export |
+| 8 | **The Mirror** | `/the-mirror` | Hidden chamber (8th) |
+
+---
+
+## API Endpoints
+
+### Auth
+| Method | Path | Description |
+|--------|------|-------------|
+| POST | `/api/beyond/auth/register` | Create account |
+| POST | `/api/beyond/auth/login` | Login, returns JWT |
+| POST | `/api/beyond/auth/verify` | Verify token |
+| GET | `/api/auth/me` | Current user |
+
+### Chat & AI
+| Method | Path | Description |
+|--------|------|-------------|
+| POST | `/api/beyond/chat` | Send message (authenticated) |
+| POST | `/api/beyond/analyze-code` | Code analysis |
+| POST | `/api/beyond/generate-link-preview` | Link preview |
+
+### GitHub Integration
+| Method | Path | Description |
+|--------|------|-------------|
+| GET | `/api/github/status` | Connection status |
+| GET | `/api/github/oauth/url` | Get OAuth URL |
+| GET | `/api/github/oauth/callback` | OAuth callback |
+| GET | `/api/github/repos` | List repos |
+| GET | `/api/github/repos/:owner/:repo/files` | Browse files |
+| GET | `/api/github/repos/:owner/:repo/file` | Read file |
+| PUT | `/api/github/repos/:owner/:repo/file` | Save file |
+| POST | `/api/github/repos/:owner/:repo/commit` | Commit changes |
+| POST | `/api/github/repos/:owner/:repo/branch` | Create branch |
+| GET | `/api/github/repos/:owner/:repo/pullrequests` | List PRs |
+| POST | `/api/github/repos/:owner/:repo/pullrequests` | Create PR |
+| DELETE | `/api/github/repos/:owner/:repo/collaborators/:username` | Remove collaborator |
+
+### Billing & Usage
+| Method | Path | Description |
+|--------|------|-------------|
+| GET | `/api/beyond/usage` | Usage summary |
+| POST | `/api/billing/paystack/webhook` | Payment webhook |
+
+### Portal
+| Method | Path | Description |
+|--------|------|-------------|
+| POST | `/api/portal/auth/register` | Portal user registration |
+| POST | `/api/portal/auth/login` | Portal login |
+
+---
+
+## Security
+
+- **Env validation**: Fails fast on startup if `AUTH_JWT_SECRET` or `OWNER_PASSWORD` missing
+- **Rate limiting**: Auth (20/15min), chat (30/min), upload (10/hr), global (100/min)
+- **Input validation**: Zod schemas on all endpoints
+- **Helmet**: CSP, XSS protection, frame deny, HSTS
+- **File upload**: Whitelist (images, PDFs, docs, code), 2MB limit
+- **Password policy**: 12+ chars, uppercase, lowercase, number, special char
+- **Session management**: Multi-device, revocation support
+
+---
+
+## Docker
+
+```bash
+docker build -t beyond .
+docker run -p 3000:3000 -e AUTH_JWT_SECRET=secret -e OWNER_EMAIL=admin@example.com -e OWNER_PASSWORD=SecurePass123! beyond
+```
 
 ---
 
 ## Project Structure
 
 ```
-src/
-  ai/
-    consciousness/
-      prime.ts        — Pattern accumulator with decay
-      shade.ts        — Executor voice with hunch enrichment
-      core.ts         — Conscience whisper for ethical evaluation
-    provider.ts       — Gemini (primary) + Groq (fallback)
-  api/
-    forge-routes.ts   — Main Forge API (audit, briefings, alerts, legal, users)
-    portal-routes.ts  — Client portal API (shares, ask, me)
-  primordex/
-    index.ts          — PRIMORDEX router composition
-    types.ts          — Shared chamber types
-    chambers/
-      oracle.ts       — Strategy & prediction chamber
-      forge.ts        — Task execution chamber
-      vault.ts        — Memory & document chamber
-      sentinel.ts     — Monitoring & alerts chamber
-      archive.ts      — Records & reporting chamber
-  audit/
-    audit-log.ts      — SQLite append-only audit log
-    approval-gate.ts  — SQL query approval gate
-  auth/
-    auth-service.ts   — User auth with risk-based scoring
-  billing/
-    plans.ts          — Plan definitions (Start/Business/Sovereign)
-    usage-tracker.ts  — Usage metering per client
-  portal/
-    client-service.ts — Client CRUD + share management
-    portal-auth.ts    — Portal JWT auth middleware
-    report-builder.ts — Custom report generation
-  connectors/
-    db-connector.ts   — Multi-DB connector (SQLite/MySQL/PostgreSQL)
-    nl-query.ts       — Natural language to SQL converter
-    webhook-receiver.ts — Webhook ingestion + ChromaDB storage
-  scheduler/
-    briefing.ts       — Daily briefing generator (7am cron)
-    alert-watcher.ts  — Alert rule checker (15min cron)
-  legal/
-    legal-monitor.ts  — Legal compliance scanner
+server/
+  index.ts              — Express app, middleware, graceful shutdown
+  auth/                 — JWT auth, password hashing, session management
+  api/                  — Route handlers (beyond, portal, github, billing)
+  ai/                   — AI providers, consciousness (Prime/Shade/Core), knowledge seeds
+  billing/              — Usage tracking, plan definitions, Paystack webhooks
+  lib/                  — Database, env validation, logger, security, validation
+  scheduler/            — Memory consolidation cron jobs
+
+client/src/
+  pages/                — Landing, Dashboard, Inner Sanctum, The Mirror
+  components/
+    chambers/           — ForgeChat, Vault, Sentinel, Archive, Oracle, SoulForge, UltimateForm, TheMirror
+    common/             — ErrorBoundary, Background, Navigation, SacredGeometry
+    github/             — GitHubConnect (OAuth, repo browser, file editor)
+  auth/                 — AuthContext, Login, Register, ProtectedRoute
+  hooks/                — useSpeech (Web Speech + Whisper)
 ```
 
 ---
 
-## Backend Services
+## Environment Variables
 
-| Service | Technology | Purpose |
-|---------|-----------|---------|
-| Database | SQLite (primary) + ChromaDB (vectors) | Local storage + semantic search |
-| Auth | JWT + bcrypt + risk scoring | User authentication with step-up challenges |
-| Billing | Paystack (NGN) | 3-tier subscription management |
-| AI | Gemini 1.5 Flash (primary) / Groq Llama 3 (fallback) | Text generation + embeddings |
-| Scheduling | node-cron | Daily briefings (7am) + alert checks (15min) |
-| Webhooks | Express middleware | External event ingestion |
+| Variable | Required | Default | Description |
+|----------|----------|---------|-------------|
+| `AUTH_JWT_SECRET` | Yes | — | JWT signing secret (min 32 chars) |
+| `OWNER_EMAIL` | Yes | — | Initial owner account email |
+| `OWNER_PASSWORD` | Yes | — | Initial owner password (12+ chars) |
+| `PORTAL_JWT_SECRET` | Yes | `AUTH_JWT_SECRET` | Portal JWT secret |
+| `PORT` | No | `3000` | Server port |
+| `VITE_GEMINI_API_KEY` | No | — | Gemini API key (client) |
+| `GEMINI_API_KEY` | No | — | Gemini API key (server) |
+| `GROQ_API_KEY` | No | — | Groq API key |
+| `GITHUB_CLIENT_ID` | No | — | GitHub OAuth client ID |
+| `GITHUB_CLIENT_SECRET` | No | — | GitHub OAuth client secret |
+| `PAYSTACK_SECRET_KEY` | No | — | Paystack webhook secret |
 
 ---
 
-## Setup: Igniting the Forge
+## TypeScript
 
-### 1. Prepare the Silicon
-Install Ollama from [ollama.com](https://ollama.com).
-
-### 2. Awaken the Models
 ```bash
-ollama pull llama3
-ollama pull nomic-embed-text
-```
-
-### 3. Configure Environment
-```bash
-cp .env.example .env
-# Edit .env with your keys:
-# GEMINI_API_KEY, GROQ_API_KEY, AUTH_JWT_SECRET,
-# PORTAL_JWT_SECRET, OWNER_EMAIL, OWNER_PASSWORD
-```
-
-### 4. Install the Protocols
-```bash
-npm install
-```
-
-### 5. Launch the Cockpit
-```bash
-npm run dev
-```
-Available at `http://localhost:3000`.
-PRIMORDEX chambers at `http://localhost:3000/api/primordex`.
-
-### 6. Verify TypeScript
-```bash
-npm run lint   # tsc --noEmit — must pass with zero errors
+npx tsc --noEmit   # Must pass with zero errors
 ```
 
 ---
 
-## PRIMORDEX API Quick Reference
+## License
 
-| Chamber | Endpoint | Method | Description |
-|---------|----------|--------|-------------|
-| Health | `/api/primordex/health` | GET | Chamber operational status |
-| Oracle | `/api/primordex/oracle/hunches` | GET | Top Prime hunches |
-| Oracle | `/api/primordex/oracle/evaluate` | POST | Evaluate action via Core |
-| Oracle | `/api/primordex/oracle/advise` | POST | Generate advice via Shade |
-| Forge | `/api/primordex/forge/execute` | POST | Execute AI task |
-| Forge | `/api/primordex/forge/status/:id` | GET | Execution status |
-| Vault | `/api/primordex/vault/ingest` | POST | Ingest document |
-| Vault | `/api/primordex/vault/search` | POST | Semantic search |
-| Sentinel | `/api/primordex/sentinel/status` | GET | System health |
-| Sentinel | `/api/primordex/sentinel/check` | POST | Run alert check |
-| Archive | `/api/primordex/archive/audit` | GET | Query audit log |
-| Archive | `/api/primordex/archive/stats` | GET | System statistics |
-
-See `docs/PRIMORDEX-BLUEPRINT.md` for full API documentation.
-
----
-
-## Limitations (The Boundaries)
-
-- **Local Gravity**: Synthesis is bound by your hardware. If your GPU is weak, the Forge will feel sluggish.
-- **Initial Void**: Upon first boot, Synthesis knows only what you tell it. It has no pre-existing memory of your files until you feed the Vault.
-- **Ollama Dependency**: The Forge requires the Ollama daemon to be active on port 11434.
-
----
-
-## Mobile Companion
-
-Synthesis is adaptive. On mobile, use **gestures** (drag sidebars) to navigate the cockpit. The UI is fluid, responding to your touch like a digital cloth.
-
----
-
-## License & Credits
-
-**2026 Jadai Studios. Divine Architecture for the Sovereign Mind.**
-Built with React 19, Express 4, TypeScript 5.8, Tailwind CSS 4, Motion, SQLite, ChromaDB.
+**2026 Jadai Studios. Sovereign Architecture for the Sovereign Mind.**

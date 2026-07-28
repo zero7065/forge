@@ -1,4 +1,4 @@
-import { Router, Request, Response } from 'express';
+import { Router, Request, Response, NextFunction } from 'express';
 import { randomUUID } from 'crypto';
 import { getDatabase } from '../lib/database.js';
 import { generateText, generateEmbedding } from '../ai/provider.js';
@@ -14,9 +14,14 @@ import { getUltimateForm } from '../ai/consciousness/ultimate-form.js';
 import { getLearningState } from '../ai/learning-states.js';
 import { auditLog, getAuditLog, approveAction, rejectAction } from '../audit/audit-log.js';
 import { trackUsage, isWithinLimit } from '../billing/usage-tracker.js';
-import { getPlanDetails } from '../billing/plans.js';
+import { getPlanDetails, getPlanLimit } from '../billing/plans.js';
 import { requireAuth, requireRole, verifyToken } from '../auth/auth-service.js';
+import { validate, registerSchema, loginSchema, chatSchema } from '../lib/validation.js';
+import { chatRateLimit } from '../lib/security.js';
+import { createChildLogger } from '../lib/logger.js';
+import { errorHelper, successHelper, createdHelper, noContentHelper, AppError, ValidationError, AuthenticationError, AuthorizationError, NotFoundError, ConflictError, formatZodError, createErrorResponse } from '../lib/error-helper.js';
 
+const log = createChildLogger('api');
 const router = Router();
 const db = getDatabase();
 
@@ -29,37 +34,41 @@ router.get('/health', (req: Request, res: Response) => {
 // AUTH ROUTES
 // =====================================================
 
-router.post('/auth/register', async (req: Request, res: Response) => {
+router.post('/auth/register', validate(registerSchema), async (req: Request, res: Response) => {
   try {
     const { email, password } = req.body;
     const { registerUser } = await import('../auth/auth-service.js');
     const result = await registerUser(email, password);
-    res.json(result);
+    createdHelper(res, result);
   } catch (error: any) {
-    res.status(400).json({ error: error.message });
+    errorHelper(error, res, '/auth/register');
   }
 });
 
-router.post('/auth/login', async (req: Request, res: Response) => {
+router.post('/auth/login', validate(loginSchema), async (req: Request, res: Response) => {
   try {
     const { email, password } = req.body;
     const { loginUser } = await import('../auth/auth-service.js');
     const result = await loginUser(email, password, req.ip || '0.0.0.0');
-    res.json(result);
+    successHelper(res, result);
   } catch (error: any) {
-    res.status(401).json({ error: error.message });
+    errorHelper(error, res, '/auth/login');
   }
 });
 
 router.post('/auth/verify', async (req: Request, res: Response) => {
-  const authHeader = req.headers.authorization;
-  if (!authHeader || !authHeader.startsWith('Bearer ')) {
-    return res.status(401).json({ error: 'Unauthorized' });
+  try {
+    const authHeader = req.headers.authorization;
+    if (!authHeader || !authHeader.startsWith('Bearer ')) {
+      throw new AuthenticationError('No authentication token provided', 'NO_TOKEN');
+    }
+    const token = authHeader.split(' ')[1];
+    const user = await verifyToken(token);
+    if (!user) throw new AuthenticationError('Invalid or expired token', 'INVALID_TOKEN');
+    successHelper(res, user);
+  } catch (error: any) {
+    errorHelper(error, res, '/auth/verify');
   }
-  const token = authHeader.split(' ')[1];
-  const user = await verifyToken(token);
-  if (!user) return res.status(401).json({ error: 'Invalid token' });
-  res.json({ user });
 });
 
 router.post('/auth/change-password', requireAuth, async (req: Request, res: Response) => {
@@ -67,9 +76,47 @@ router.post('/auth/change-password', requireAuth, async (req: Request, res: Resp
     const { currentPassword, newPassword } = req.body;
     const { changePassword } = await import('../auth/auth-service.js');
     await changePassword(req.user.userId, currentPassword, newPassword);
-    res.json({ message: 'Password changed successfully' });
+    successHelper(res, null, 'Password changed successfully');
   } catch (error: any) {
-    res.status(400).json({ error: error.message });
+    errorHelper(error, res, '/auth/change-password');
+  }
+});
+
+router.post('/auth/refresh', async (req: Request, res: Response) => {
+  try {
+    const { refreshToken } = req.body;
+    if (!refreshToken) {
+      throw new ValidationError('Refresh token required', [{ field: 'refreshToken', message: 'Refresh token is required', code: 'REFRESH_TOKEN_REQUIRED' }]);
+    }
+    const { refreshAccessToken } = await import('../auth/auth-service.js');
+    const result = await refreshAccessToken(refreshToken);
+    if (!result) {
+      throw new AuthenticationError('Invalid or expired refresh token', 'INVALID_REFRESH_TOKEN');
+    }
+    successHelper(res, result);
+  } catch (error: any) {
+    errorHelper(error, res, '/auth/refresh');
+  }
+});
+
+router.post('/auth/logout', requireAuth, async (req: Request, res: Response) => {
+  try {
+    const { revokeAllSessions } = await import('../auth/auth-service.js');
+    await revokeAllSessions(req.user.userId);
+    successHelper(res, null, 'Logged out successfully');
+  } catch (error: any) {
+    errorHelper(error, res, '/auth/logout');
+  }
+});
+
+router.get('/auth/sessions', requireAuth, async (req: Request, res: Response) => {
+  try {
+    const { getDatabase } = await import('../lib/database.js');
+    const db = getDatabase();
+    const sessions = db.prepare('SELECT id, user_id, token, expires_at FROM sessions WHERE user_id = ? ORDER BY created_at DESC').all(req.user.userId);
+    successHelper(res, sessions);
+  } catch (error: any) {
+    errorHelper(error, res, '/auth/sessions');
   }
 });
 
@@ -92,9 +139,9 @@ router.post('/users/invite', requireAuth, requireRole('owner'), async (req: Requ
     const { email, role } = req.body;
     const { inviteUser } = await import('../auth/auth-service.js');
     const result = await inviteUser(email, role, req.user.userId);
-    res.json(result);
+    createdHelper(res, result);
   } catch (error: any) {
-    res.status(400).json({ error: error.message });
+    errorHelper(error, res, '/users/invite');
   }
 });
 
@@ -104,9 +151,9 @@ router.patch('/users/:id/role', requireAuth, requireRole('owner'), async (req: R
     const { role } = req.body;
     const { changeUserRole } = await import('../auth/auth-service.js');
     await changeUserRole(id, role);
-    res.json({ message: 'Role updated' });
+    successHelper(res, null, 'Role updated');
   } catch (error: any) {
-    res.status(400).json({ error: error.message });
+    errorHelper(error, res, '/users/:id/role');
   }
 });
 
@@ -115,9 +162,9 @@ router.delete('/users/:id', requireAuth, requireRole('owner'), async (req: Reque
     const { id } = req.params;
     const { deactivateUser } = await import('../auth/auth-service.js');
     await deactivateUser(id);
-    res.json({ message: 'User deactivated' });
+    successHelper(res, null, 'User deactivated');
   } catch (error: any) {
-    res.status(400).json({ error: error.message });
+    errorHelper(error, res, '/users/:id');
   }
 });
 
@@ -129,9 +176,9 @@ router.get('/audit', requireAuth, async (req: Request, res: Response) => {
   try {
     const { limit = 100, offset = 0, filter } = req.query;
     const logs = await getAuditLog(Number(limit), Number(offset), filter as string);
-    res.json(logs);
+    successHelper(res, logs);
   } catch (error: any) {
-    res.status(500).json({ error: error.message });
+    errorHelper(error, res, '/audit');
   }
 });
 
@@ -139,9 +186,9 @@ router.post('/audit/:id/approve', requireAuth, requireRole('admin'), async (req:
   try {
     const { id } = req.params;
     await approveAction(id, req.user.userId);
-    res.json({ message: 'Action approved' });
+    successHelper(res, null, 'Action approved');
   } catch (error: any) {
-    res.status(400).json({ error: error.message });
+    errorHelper(error, res, '/audit/:id/approve');
   }
 });
 
@@ -149,9 +196,9 @@ router.post('/audit/:id/reject', requireAuth, requireRole('admin'), async (req: 
   try {
     const { id } = req.params;
     await rejectAction(id, req.user.userId, req.body.reason);
-    res.json({ message: 'Action rejected' });
+    successHelper(res, null, 'Action rejected');
   } catch (error: any) {
-    res.status(400).json({ error: error.message });
+    errorHelper(error, res, '/audit/:id/reject');
   }
 });
 
@@ -159,16 +206,17 @@ router.post('/audit/:id/reject', requireAuth, requireRole('admin'), async (req: 
 // CHAT / CONSCIOUSNESS ROUTES
 // =====================================================
 
-router.post('/chat', requireAuth, async (req: Request, res: Response) => {
+router.post('/chat', requireAuth, chatRateLimit, validate(chatSchema), async (req: Request, res: Response) => {
   try {
     const { message, chamber = 'forge', personalityMode = 'auto', context = {} } = req.body;
     const userId = req.user.userId;
 
-    // Track usage
-    const plan = 'starter'; // TODO: get from user
+    const userPlan = db.prepare('SELECT plan_id FROM subscriptions WHERE user_id = ? AND status = ? ORDER BY created_at DESC LIMIT 1').get(userId, 'active') as any;
+    const plan = userPlan?.plan_id || 'starter';
     const { withinLimit } = await isWithinLimit(userId, 'ai_questions_per_month', plan as any);
     if (!withinLimit) {
-      return res.status(429).json({ error: 'Monthly AI limit reached' });
+      errorHelper(new ValidationError('Monthly AI limit reached'), res, '/chat');
+      return;
     }
 
     const emotionalFrequency = detectEmotionalFrequency(message);
@@ -202,7 +250,7 @@ router.post('/chat', requireAuth, async (req: Request, res: Response) => {
       risk_score: 0
     });
 
-    res.json({
+    successHelper(res, {
       response: shadeResponse.content,
       emotion: shadeResponse.emotion,
       whisper: shadeResponse.whisper,
@@ -210,8 +258,7 @@ router.post('/chat', requireAuth, async (req: Request, res: Response) => {
       timestamp: shadeResponse.timestamp
     });
   } catch (error: any) {
-    console.error('Chat error:', error);
-    res.status(500).json({ error: error.message });
+    errorHelper(error, res, '/chat');
   }
 });
 
@@ -392,7 +439,8 @@ router.get('/personality-modes', requireAuth, async (req: Request, res: Response
 // Usage & Billing
 router.get('/usage', requireAuth, async (req: Request, res: Response) => {
   try {
-    const plan = 'starter'; // TODO: get from user
+    const userPlan = db.prepare('SELECT plan_id FROM subscriptions WHERE user_id = ? AND status = ? ORDER BY created_at DESC LIMIT 1').get(req.user.userId, 'active') as any;
+    const plan = userPlan?.plan_id || 'starter';
     const summary = await import('../billing/usage-tracker.js').then(m => m.getUsageSummary(req.user.userId, plan as any));
     res.json({ plan: getPlanDetails(plan), usage: summary });
   } catch (error: any) {

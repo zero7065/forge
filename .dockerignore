@@ -1,0 +1,10 @@
+node_modules
+dist
+client/dist
+data
+uploads
+logs
+*.db
+.env
+.git
+.github
