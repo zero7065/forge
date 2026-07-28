@@ -69,9 +69,11 @@ export const TheForge: React.FC = () => {
         })
       });
 
-      const data = await res.json();
+      const body = await res.json();
       
-      if (!res.ok) throw new Error(data.error || 'Failed to get response');
+      if (!res.ok) throw new Error(body.error || body.message || 'Failed to get response');
+
+      const data = body.data || body;
 
       const assistantMessage: Message = {
         id: (Date.now() + 1).toString(),

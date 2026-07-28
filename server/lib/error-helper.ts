@@ -69,11 +69,11 @@ export class ConflictError extends AppError {
 }
 
 export function formatZodError(error: ZodError, path: string = ''): ValidationErrorDetail[] {
-  return error.errors.map(err => ({
-    field: path ? `${path}.${err.path.join('.')}` : err.path.join('.'),
+  return (error.issues || []).map((err: any) => ({
+    field: path ? `${path}.${err.path?.join('.') || ''}` : err.path?.join('.') || '',
     message: err.message,
     code: 'VALIDATION_ERROR',
-    value: err.value
+    value: err.input
   }));
 }
 
@@ -139,7 +139,7 @@ export function errorHelper(err: any, res: Response, path: string = ''): Respons
   return res.status(errorResponse.status).json(errorResponse);
 }
 
-export function successHelper<T>(data: T, res: Response, message?: string, status: number = 200): Response {
+export function successHelper<T>(res: Response, data: T, message?: string, status: number = 200): Response {
   const response = {
     error: 'success',
     message: message || 'Operation successful',
@@ -151,8 +151,8 @@ export function successHelper<T>(data: T, res: Response, message?: string, statu
   return res.status(status).json(response);
 }
 
-export function createdHelper<T>(data: T, res: Response, message?: string): Response {
-  return successHelper(data, res, message || 'Resource created successfully', 201);
+export function createdHelper<T>(res: Response, data: T, message?: string): Response {
+  return successHelper(res, data, message || 'Resource created successfully', 201);
 }
 
 export function noContentHelper(res: Response): Response {

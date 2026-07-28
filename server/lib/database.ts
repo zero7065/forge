@@ -313,6 +313,91 @@ function initializeSchema() {
       FOREIGN KEY (user_id) REFERENCES users(id),
       FOREIGN KEY (invited_by) REFERENCES users(id)
     );
+
+    -- Dream entries (Chamber II)
+    CREATE TABLE IF NOT EXISTS dream_entries (
+      id TEXT PRIMARY KEY,
+      user_id TEXT NOT NULL,
+      content TEXT NOT NULL,
+      emotion TEXT DEFAULT 'neutral',
+      tags TEXT DEFAULT '[]',
+      created_at TEXT DEFAULT (datetime('now')),
+      FOREIGN KEY (user_id) REFERENCES users(id)
+    );
+
+    -- Garden reflections (Chamber V)
+    CREATE TABLE IF NOT EXISTS reflections (
+      id TEXT PRIMARY KEY,
+      user_id TEXT NOT NULL,
+      content TEXT NOT NULL,
+      type TEXT DEFAULT 'free',
+      emotional_state TEXT DEFAULT 'neutral',
+      insight TEXT,
+      created_at TEXT DEFAULT (datetime('now')),
+      FOREIGN KEY (user_id) REFERENCES users(id)
+    );
+
+    -- Sage writings (Chamber IV)
+    CREATE TABLE IF NOT EXISTS writings (
+      id TEXT PRIMARY KEY,
+      user_id TEXT NOT NULL,
+      title TEXT NOT NULL,
+      content TEXT NOT NULL,
+      mode TEXT DEFAULT 'raw',
+      tone TEXT,
+      authenticity_score REAL DEFAULT 0,
+      clarity_level REAL DEFAULT 0,
+      emotional_frequency TEXT DEFAULT 'neutral',
+      analysis TEXT,
+      created_at TEXT DEFAULT (datetime('now')),
+      FOREIGN KEY (user_id) REFERENCES users(id)
+    );
+
+    -- Alchemist fragments (Chamber III)
+    CREATE TABLE IF NOT EXISTS fragments (
+      id TEXT PRIMARY KEY,
+      user_id TEXT NOT NULL,
+      content TEXT NOT NULL,
+      source TEXT DEFAULT 'manual',
+      tags TEXT DEFAULT '[]',
+      created_at TEXT DEFAULT (datetime('now')),
+      FOREIGN KEY (user_id) REFERENCES users(id)
+    );
+
+    -- Alchemist syntheses
+    CREATE TABLE IF NOT EXISTS syntheses (
+      id TEXT PRIMARY KEY,
+      user_id TEXT NOT NULL,
+      fragment_ids TEXT NOT NULL,
+      result TEXT NOT NULL,
+      imagination_mind TEXT DEFAULT '[]',
+      created_at TEXT DEFAULT (datetime('now')),
+      FOREIGN KEY (user_id) REFERENCES users(id)
+    );
+
+    -- Mirror insights (Chamber VII)
+    CREATE TABLE IF NOT EXISTS mirror_insights (
+      id TEXT PRIMARY KEY,
+      user_id TEXT NOT NULL,
+      category TEXT NOT NULL,
+      title TEXT NOT NULL,
+      content TEXT NOT NULL,
+      resonance REAL DEFAULT 0.5,
+      created_at TEXT DEFAULT (datetime('now')),
+      FOREIGN KEY (user_id) REFERENCES users(id)
+    );
+
+    -- Error logs
+    CREATE TABLE IF NOT EXISTS error_logs (
+      id TEXT PRIMARY KEY,
+      message TEXT,
+      stack TEXT,
+      component_stack TEXT,
+      url TEXT,
+      user_agent TEXT,
+      user_id TEXT,
+      created_at TEXT DEFAULT (datetime('now'))
+    );
   `;
 
   db.exec(schema);

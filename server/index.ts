@@ -17,6 +17,7 @@ import { githubOAuthRouter } from './github/oauth.js';
 import { speechRouter } from './speech/whisper.js';
 import { collaborationRouter } from './api/collaboration.js';
 import { trainingRouter } from './ai/training-export.js';
+import { chamberRoutes } from './api/chamber-routes.js';
 
 import { getDatabase } from './lib/database.js';
 import { initScheduler } from './scheduler/index.js';
@@ -98,6 +99,7 @@ app.use('/api/github/oauth', githubOAuthRouter);
 app.use('/api/speech', speechRouter);
 app.use('/api/collaboration', collaborationRouter);
 app.use('/api/training', trainingRouter);
+app.use('/api', chamberRoutes);
 
 // Secured file upload
 const upload = multer({

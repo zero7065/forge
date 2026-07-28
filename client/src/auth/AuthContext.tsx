@@ -52,8 +52,9 @@ export const AuthProvider: React.FC<{ children: ReactNode }> = ({ children }) =>
       headers: { 'Content-Type': 'application/json' },
       body: JSON.stringify({ email, password })
     });
-    const data = await res.json();
-    if (!res.ok) throw new Error(data.error || 'Login failed');
+    const body = await res.json();
+    if (!res.ok) throw new Error(body.error || body.message || 'Login failed');
+    const data = body.data || body;
     
     localStorage.setItem('primordex_token', data.token);
     setToken(data.token);
@@ -66,8 +67,9 @@ export const AuthProvider: React.FC<{ children: ReactNode }> = ({ children }) =>
       headers: { 'Content-Type': 'application/json' },
       body: JSON.stringify({ email, password })
     });
-    const data = await res.json();
-    if (!res.ok) throw new Error(data.error || 'Registration failed');
+    const body = await res.json();
+    if (!res.ok) throw new Error(body.error || body.message || 'Registration failed');
+    const data = body.data || body;
     
     localStorage.setItem('primordex_token', data.token);
     setToken(data.token);

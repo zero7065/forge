@@ -12,10 +12,11 @@ async function request(url: string, options: RequestInit = {}): Promise<any> {
 
   if (!response.ok) {
     const error = await response.json().catch(() => ({ error: 'Request failed' })) as any;
-    throw new Error(error.error || `HTTP ${response.status}`);
+    throw new Error(error.error || error.message || `HTTP ${response.status}`);
   }
 
-  return response.json() as any;
+  const body = await response.json() as any;
+  return body.data !== undefined ? body.data : body;
 }
 
 export async function apiGet(url: string): Promise<any> {
@@ -52,8 +53,9 @@ export async function apiVerify(token: string) {
     }
   });
   if (!response.ok) return null;
-  const data = await response.json() as any;
-  return data.user || null;
+  const body = await response.json() as any;
+  const data = body.data || body;
+  return data.user || data;
 }
 
 // Chat

@@ -1,4 +1,5 @@
 import React, { ErrorInfo, Component } from 'react';
+import { motion } from 'framer-motion';
 
 interface ErrorBoundaryState {
   hasError: boolean;
