@@ -8,7 +8,6 @@ import { validateEnv } from './lib/env.js';
 import { logger, createChildLogger } from './lib/logger.js';
 import { securityMiddleware, globalRateLimit, authRateLimit, chatRateLimit, uploadRateLimit } from './lib/security.js';
 import { validate, registerSchema, loginSchema, chatSchema } from './lib/validation.js';
-
 import { forgeRoutes } from './api/forge-routes.js';
 import { portalRoutes } from './api/portal-routes.js';
 import { beyondRoutes } from './api/beyond-routes.js';
@@ -18,6 +17,12 @@ import { speechRouter } from './speech/whisper.js';
 import { collaborationRouter } from './api/collaboration.js';
 import { trainingRouter } from './ai/training-export.js';
 import { chamberRoutes } from './api/chamber-routes.js';
+
+// Redis integration (CJS module)
+const redisModule = require('./lib/redis.js');
+const redisClient = redisModule.redisClient;
+const redisSessionStore = redisModule.redisSessionStore;
+const redisRateLimitFn = redisModule.redisRateLimitFn;
 
 import { getDatabase } from './lib/database.js';
 import { initScheduler } from './scheduler/index.js';
@@ -37,6 +42,24 @@ const app: Express = express();
 // Security
 securityMiddleware(app);
 app.use(globalRateLimit);
+
+// Session setup with Redis store
+app.use(session({
+  store: redisSessionStore,
+  secret: process.env.AUTH_JWT_SECRET || 'default-secret-change-in-production',
+  resave: false,
+  saveUninitialized: false,
+  cookie: {
+    httpOnly: true,
+    secure: process.env.NODE_ENV === 'production',
+    maxAge: 24 * 60 * 60 * 1000, // 24 hours
+    sameSite: 'lax' as const
+  }
+}));
+
+// Rate limiting with Redis for distributed limits
+app.use('/api/auth', redisRateLimit(60000, 60));
+app.use('/api', redisRateLimit(60000, 60));
 
 // Body parsing (reduced from 50mb to 2mb)
 app.use(express.json({ limit: '2mb' }));
@@ -79,8 +102,17 @@ app.get('/api/health', async (req: Request, res: Response) => {
   } catch {
     checks.database = 'error';
   }
+  
+  // Check Redis connectivity
+  try {
+    await redisClient.ping();
+    checks.redis = 'ok';
+  } catch {
+    checks.redis = 'error';
+  }
+  
   const healthy = Object.values(checks).every(v => v === 'ok');
-res.status(healthy ? 200 : 503).json({
+  res.status(healthy ? 200 : 503).json({
         status: healthy ? 'healthy' : 'degraded',
         version: '2.1.0',
         name: 'BEYOND',
