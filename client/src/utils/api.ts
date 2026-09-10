@@ -113,6 +113,31 @@ export async function apiGetUsage() {
   return apiGet('/api/usage');
 }
 
+// Alerts
+export async function apiGetAlerts() {
+  return apiGet('/api/alerts');
+}
+
+export async function apiRunAlertChecks() {
+  return apiPost('/api/alerts/run', {});
+}
+
+// Legal
+export async function apiGetLegalFlags() {
+  return apiGet('/api/legal');
+}
+
+export async function apiRunLegalScan() {
+  return apiPost('/api/legal/scan', {});
+
+// Briefings
+export async function apiGetBriefings() {
+  return apiGet('/api/briefings');
+}
+
+export async function apiRunBriefing() {
+  return apiPost('/api/brief/run', {});
+
 // Audit
 export async function apiGetAuditLog(limit = 100, offset = 0) {
   return apiGet(`/api/audit?limit=${limit}&offset=${offset}`);

@@ -1,0 +1,29 @@
+[
+  {
+    "id": "signups_low",
+    "source": "app_users",
+    "metric": "signups",
+    "threshold": "<10",
+    "window": "1h",
+    "message": "User signups dropped below 10 per hour",
+    "enabled": true
+  },
+  {
+    "id": "errors_spike",
+    "source": "system_logs",
+    "metric": "errors",
+    "threshold": ">50",
+    "window": "15m",
+    "message": "System error rate spike detected",
+    "enabled": true
+  },
+  {
+    "id": "response_slow",
+    "source": "api_latency",
+    "metric": "response_time",
+    "threshold": ">2000",
+    "window": "5m",
+    "message": "API response time exceeds 2 seconds",
+    "enabled": false
+  }
+]

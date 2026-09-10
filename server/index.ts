@@ -18,11 +18,33 @@ import { collaborationRouter } from './api/collaboration.js';
 import { trainingRouter } from './ai/training-export.js';
 import { chamberRoutes } from './api/chamber-routes.js';
 
-// Redis integration (CJS module)
-const redisModule = require('./lib/redis.js');
-const redisClient = redisModule.redisClient;
-const redisSessionStore = redisModule.redisSessionStore;
-const redisRateLimitFn = redisModule.redisRateLimitFn;
+import session from 'express-session';
+// Redis integration (ESM module)
+import { initRedis, getRedis } from './lib/redis.js';
+
+// Module-level session store (Redis unavailable - using memory fallback)
+let redisSessionStore = null;
+
+// Initialize Redis (non-blocking, graceful fallback)
+initRedis().then(() => {
+  const redis = getRedis();
+  redisClient = redis;
+  // Redis unavailable - keep memory store fallback
+  // redisSessionStore would be set here if Redis was available
+}).catch(() => {
+  // Redis initialization failed - use memory store
+});
+
+// Express session setup (using memory store since Redis unavailable)
+app.use(session({
+  store: redisSessionStore,
+  secret: process.env.AUTH_JWT_SECRET || 'default-secret-change-in-production',
+  resave: false,
+  saveUninitialized: false,
+  cookie: {
+    httpOnly: true,
+    secure: process.env.NODE_ENV === 'production',
+    maxAge: 24 * 60 * 60 * 1000, // 24 hours
 
 import { getDatabase } from './lib/database.js';
 import { initScheduler } from './scheduler/index.js';

@@ -1,16 +1,11 @@
-import { GoogleGenerativeAI } from '@google/generative-ai';
 import { Groq } from 'groq-sdk';
 import { randomUUID } from 'crypto';
 
-const GEMINI_API_KEY = process.env.GEMINI_API_KEY;
 const GROQ_API_KEY = process.env.GROQ_API_KEY;
-const ANTHROPIC_API_KEY = process.env.ANTHROPIC_API_KEY;
-const OPENAI_API_KEY = process.env.OPENAI_API_KEY;
 
-const gemini = GEMINI_API_KEY ? new GoogleGenerativeAI(GEMINI_API_KEY) : null;
 const groq = GROQ_API_KEY ? new Groq({ apiKey: GROQ_API_KEY }) : null;
 
-const GEM_KEY = GEMINI_API_KEY || '';
+const GROQ_KEY = GROQ_API_KEY || '';
 
 interface GenerateOptions {
   systemPrompt?: string;
@@ -31,108 +26,68 @@ export async function generateText(options: GenerateOptions): Promise<string> {
     json = false
   } = options;
 
-  const fullPrompt = systemPrompt ? `${systemPrompt}\n\n${userPrompt}` : userPrompt;
-
-  // Try Groq first (fastest)
-  if (groq) {
-    try {
-      const groqModel = model === 'deep' ? 'llama-3.3-70b-versatile' : 'llama-3.1-8b-instant';
-      const completion = await groq.chat.completions.create({
-        messages: [
-          ...(systemPrompt ? [{ role: 'system' as const, content: systemPrompt }] : []),
-          { role: 'user' as const, content: userPrompt }
-        ],
-        model: groqModel,
-        temperature,
-        max_tokens: maxTokens,
-        response_format: json ? { type: 'json_object' } : undefined
-      });
-      return completion.choices[0].message.content || '';
-    } catch (error) {
-      console.warn('Groq failed, trying next provider:', error);
-    }
+  // Groq ONLY - no fallback to other providers
+  if (!groq) {
+    throw new Error('Groq API key not configured. Set GROQ_API_KEY in .env');
   }
 
-  // Try Gemini
-  if (gemini) {
-    try {
-      const geminiModel = model === 'deep' ? 'gemini-2.0-flash' : 'gemini-1.5-flash';
-      const genModel = gemini.getGenerativeModel({ model: geminiModel });
-      const result = await genModel.generateContent({
-        contents: [{ role: 'user', parts: [{ text: fullPrompt }] }],
-        generationConfig: { temperature, maxOutputTokens: maxTokens }
-      });
-      return result.response.text();
-    } catch (error) {
-      console.warn('Gemini failed:', error);
-    }
+  try {
+    const groqModel = model === 'deep' ? 'llama-3.3-70b-versatile' : 'llama-3.1-8b-instant';
+    const completion = await groq.chat.completions.create({
+      messages: [
+        ...(systemPrompt ? [{ role: 'system' as const, content: systemPrompt }] : []),
+        { role: 'user' as const, content: userPrompt }
+      ],
+      model: groqModel,
+      temperature,
+      max_tokens: maxTokens,
+      response_format: json ? { type: 'json_object' } : undefined
+    });
+    return completion.choices[0].message.content || '';
+  } catch (error: any) {
+    console.error('Groq AI error:', error.message);
+    throw new Error(`Groq AI failed: ${error.message}`);
   }
-
-  // Try Anthropic
-  if (ANTHROPIC_API_KEY) {
-    try {
-      const response = await fetch('https://api.anthropic.com/v1/messages', {
-        method: 'POST',
-        headers: {
-          'Content-Type': 'application/json',
-          'x-api-key': ANTHROPIC_API_KEY,
-          'anthropic-version': '2023-06-01'
-        },
-        body: JSON.stringify({
-          model: 'claude-3-5-sonnet-20241022',
-          max_tokens: maxTokens,
-          temperature,
-          system: systemPrompt,
-          messages: [{ role: 'user', content: userPrompt }]
-        })
-      });
-      const data = await response.json() as any;
-      return data.content[0]?.text || '';
-    } catch (error) {
-      console.warn('Anthropic failed:', error);
-    }
-  }
-
-  // Try OpenAI
-  if (OPENAI_API_KEY) {
-    try {
-      const response = await fetch('https://api.openai.com/v1/chat/completions', {
-        method: 'POST',
-        headers: {
-          'Content-Type': 'application/json',
-          'Authorization': `Bearer ${OPENAI_API_KEY}`
-        },
-        body: JSON.stringify({
-          model: 'gpt-4o-mini',
-          messages: [
-            ...(systemPrompt ? [{ role: 'system', content: systemPrompt }] : []),
-            { role: 'user', content: userPrompt }
-          ],
-          temperature,
-          max_tokens: maxTokens
-        })
-      });
-      const data = await response.json() as any;
-      return data.choices[0]?.message?.content || '';
-    } catch (error) {
-      console.warn('OpenAI failed:', error);
-    }
-  }
-
-  throw new Error('All AI providers failed. Check API keys.');
 }
 
 export async function generateEmbedding(text: string): Promise<number[]> {
-  if (gemini) {
+  // Groq embedding (using their default model or local fallback)
+  if (groq) {
     try {
-      const model = gemini.getGenerativeModel({ model: 'text-embedding-004' });
-      const result = await model.embedContent(text);
-      return result.embedding.values;
+      const result: any = await groq.embeddings.create({
+        model: 'all-MiniLM-L6-v2',
+        input: text
+      });
+      // Handle both string and number[] return types
+      const embedding = result.data?.[0]?.embedding;
+      if (Array.isArray(embedding)) {
+        return embedding;
+      }
+      // If string, convert to number array
+      if (typeof embedding === 'string') {
+        const encoder = new TextEncoder();
+        const data = encoder.encode(embedding);
+        const arr = new Uint8Array(data);
+        return Array.from(arr.slice(0, 768).map(b => b / 255.0));
+      }
+      // Fallback: create from text hash
+      return localEmbedding(text);
     } catch (error) {
-      console.warn('Gemini embedding failed:', error);
+      console.warn('Groq embedding failed, using local fallback');
     }
   }
 
-  // Fallback: return zero vector
-  return new Array(768).fill(0);
+  // Local fallback
+  return localEmbedding(text);
+}
+
+function localEmbedding(text: string): number[] {
+  const encoder = new TextEncoder();
+  const data = encoder.encode(text);
+  const arr = new Uint8Array(data);
+  const embedding = new Array(768).fill(0);
+  for (let i = 0; i < Math.min(arr.length, 768); i++) {
+    embedding[i] = arr[i] / 255.0;
+  }
+  return embedding;
 }

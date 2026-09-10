@@ -1,28 +1,38 @@
 // Redis client - optional, graceful fallback if Redis not available
-// @ts-nocheck
-const { Redis } = require('ioredis');
+import IORedis from 'ioredis';
 
-const redisClient = new Redis({
-  host: process.env.REDIS_HOST || 'localhost',
-  port: parseInt(process.env.REDIS_PORT || '6379'),
-});
+let redisClient: IORedis.Redis | null = null;
 
-redisClient.on('error', (err) => console.error('Redis Client Error', err));
+// Initialize Redis connection
+export async function initRedis(): Promise<void> {
+  try {
+    redisClient = new IORedis({
+      host: process.env.REDIS_HOST || 'localhost',
+      port: parseInt(process.env.REDIS_PORT || '6379'),
+    });
 
-// Ensure connection is attempted (non-blocking)
-redisClient.connect().then(() => console.log('Redis connected')).catch(() => {
-  console.warn('Redis not available - running without Redis features');
-});
+    redisClient.on('error', (err: Error) => console.error('Redis Client Error', err));
+
+    // Ensure connection is attempted (non-blocking)
+    await redisClient.connect();
+    console.log('Redis connected');
+  } catch (err) {
+    console.warn('Redis not available - running without Redis features');
+    redisClient = null;
+  }
+}
+
+// Get the Redis client (returns null if Redis unavailable)
+export function getRedis(): IORedis.Redis | null {
+  return redisClient;
+}
 
 // Session store - initialized by server setup
-let redisSessionStore = null;
+let redisSessionStore: any = null;
 
 // Rate limiter - fallback to in-memory if Redis unavailable
-let redisRateLimitFn = (req, res, next) => next();
+let redisRateLimitFn = (req: any, res: any, next: any) => next();
 
-// Export for use by server index
-module.exports = {
-  redisClient,
-  redisSessionStore,
-  redisRateLimitFn
-};
+// Export for use by server
+// (individual functions already exported above)
+//

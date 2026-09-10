@@ -3,12 +3,12 @@ import path from 'path';
 import { fileURLToPath } from 'url';
 import Database from 'better-sqlite3';
 import { createChildLogger } from './logger.js';
-import { getDatabase as getCoreDB, migrate as runMigrations } from './migrations.ts';
+import { migrate as runMigrations } from './migrations.ts';
 
 const log = createChildLogger('database');
 
 const __filename = fileURLToPath(import.meta.url);
-const __dirname = path.dirname(__dirname);
+const __dirname = path.dirname(__filename);
 
 dotenv.config({ path: path.join(__dirname, '../../.env') });
 

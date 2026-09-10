@@ -2,7 +2,7 @@ import Database from 'better-sqlite3';
 import path from 'path';
 import { readdirSync, readFileSync } from 'fs';
 
-const DB_PATH = process.env.DB_PATH || path.join(path.dirname(''), 'data', 'primordex.db');
+const DB_PATH = process.env.DB_PATH || path.join('data', 'primordex.db');
 
 // Migration tracker table
 const db = new Database(DB_PATH);
@@ -38,7 +38,7 @@ export function migrate(): void {
   for (const migration of pending) {
     try {
       migration.up(db);
-      db.prepare('INSERT INTO _migrations (name) VALUES (?)').run(migration.name);
+      db.prepare('INSERT OR IGNORE INTO _migrations (name) VALUES (?)').run(migration.name);
       console.log(`Migration applied: ${migration.name}`);
     } catch (err) {
       console.error(`Migration failed: ${migration.name}`, err);
@@ -68,5 +68,3 @@ for (const file of migrationFiles) {
   });
 }
 
-// Auto-run migrations on module import
-migrate();

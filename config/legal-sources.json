@@ -1,0 +1,20 @@
+[
+  {
+    "name": "NITDA Nigeria",
+    "type": "rss",
+    "url": "https://nitda.gov.ng/feed",
+    "enabled": true
+  },
+  {
+    "name": "NDPC Nigeria",
+    "type": "rss",
+    "url": "https://ndpc.gov.ng/feed",
+    "enabled": true
+  },
+  {
+    "name": "ICO Alerts",
+    "type": "rss",
+    "url": "https://ico.org.uk/feed",
+    "enabled": true
+  }
+]

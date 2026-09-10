@@ -203,6 +203,68 @@ router.post('/audit/:id/reject', requireAuth, requireRole('admin'), async (req: 
 });
 
 // =====================================================
+// ALERT RULES ROUTES
+// =====================================================
+
+router.get('/alerts', requireAuth, async (req: Request, res: Response) => {
+  try {
+    const { getAlerts } = await import('../scheduler/briefing.js');
+    const alerts = await getAlerts();
+    successHelper(res, alerts);
+  } catch (error: any) {
+    errorHelper(error, res, '/alerts');
+  }
+});
+
+router.post('/alerts/run', requireAuth, requireRole('owner'), async (req: Request, res: Response) => {
+  try {
+    const { runAlertChecks } = await import('../scheduler/briefing.js');
+    await runAlertChecks();
+    successHelper(res, null, 'Alert checks completed');
+  } catch (error: any) {
+    errorHelper(error, res, '/alerts/run');
+  }
+});
+
+// =====================================================
+// LEGAL FLAGS ROUTES
+// =====================================================
+
+router.get('/legal', requireAuth, async (req: Request, res: Response) => {
+  try {
+    const { getLegalFlags } = await import('../scheduler/briefing.js');
+    const flags = await getLegalFlags();
+    successHelper(res, flags);
+  } catch (error: any) {
+    errorHelper(error, res, '/legal');
+  }
+});
+
+router.post('/legal/scan', requireAuth, requireRole('owner'), async (req: Request, res: Response) => {
+  try {
+    const { runLegalScan } = await import('../scheduler/briefing.js');
+    const result = await runLegalScan();
+    successHelper(res, result);
+  } catch (error: any) {
+    errorHelper(error, res, '/legal/scan');
+  }
+});
+
+// =====================================================
+// BRIEFING ROUTES
+// =====================================================
+
+router.post('/brief/run', requireAuth, requireRole('owner'), async (req: Request, res: Response) => {
+  try {
+    const { generateDailyBriefing } = await import('../scheduler/briefing.js');
+    const result = await generateDailyBriefing();
+    successHelper(res, result);
+  } catch (error: any) {
+    errorHelper(error, res, '/brief/run');
+  }
+});
+
+// =====================================================
 // CHAT / CONSCIOUSNESS ROUTES
 // =====================================================
 
