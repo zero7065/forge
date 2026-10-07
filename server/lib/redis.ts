@@ -3,21 +3,27 @@ import IORedis from 'ioredis';
 
 let redisClient: IORedis.Redis | null = null;
 
-// Initialize Redis connection
+// Initialize Redis connection (optional - silent local fallback)
 export async function initRedis(): Promise<void> {
+  // Skip Redis entirely unless explicitly configured - local-first
+  if (!process.env.REDIS_HOST) {
+    redisClient = null;
+    return;
+  }
   try {
     redisClient = new IORedis({
       host: process.env.REDIS_HOST || 'localhost',
       port: parseInt(process.env.REDIS_PORT || '6379'),
+      retryStrategy: () => null,
+      enableOfflineQueue: false,
+      maxRetriesPerRequest: 1,
     });
 
-    redisClient.on('error', (err: Error) => console.error('Redis Client Error', err));
+    redisClient.on('error', () => { /* silent - memory fallback */ });
 
-    // Ensure connection is attempted (non-blocking)
-    await redisClient.connect();
+    await redisClient.ping();
     console.log('Redis connected');
-  } catch (err) {
-    console.warn('Redis not available - running without Redis features');
+  } catch {
     redisClient = null;
   }
 }

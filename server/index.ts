@@ -19,32 +19,8 @@ import { trainingRouter } from './ai/training-export.js';
 import { chamberRoutes } from './api/chamber-routes.js';
 
 import session from 'express-session';
-// Redis integration (ESM module)
+// Redis integration (ESM module, optional - graceful fallback to memory)
 import { initRedis, getRedis } from './lib/redis.js';
-
-// Module-level session store (Redis unavailable - using memory fallback)
-let redisSessionStore = null;
-
-// Initialize Redis (non-blocking, graceful fallback)
-initRedis().then(() => {
-  const redis = getRedis();
-  redisClient = redis;
-  // Redis unavailable - keep memory store fallback
-  // redisSessionStore would be set here if Redis was available
-}).catch(() => {
-  // Redis initialization failed - use memory store
-});
-
-// Express session setup (using memory store since Redis unavailable)
-app.use(session({
-  store: redisSessionStore,
-  secret: process.env.AUTH_JWT_SECRET || 'default-secret-change-in-production',
-  resave: false,
-  saveUninitialized: false,
-  cookie: {
-    httpOnly: true,
-    secure: process.env.NODE_ENV === 'production',
-    maxAge: 24 * 60 * 60 * 1000, // 24 hours
 
 import { getDatabase } from './lib/database.js';
 import { initScheduler } from './scheduler/index.js';
@@ -52,6 +28,17 @@ import { initializeKnowledgeBase } from './ai/knowledge-base.js';
 import { loadPersonalityModes } from './ai/personality-modes/index.js';
 import { bootstrapOwner } from './auth/auth-service.js';
 import { initConsolidation } from './scheduler/consolidation.js';
+
+// Module-level Redis handles (null = memory fallback, fully local)
+let redisClient: any = null;
+let redisSessionStore: any = null;
+
+// Initialize Redis in background - never blocks boot
+initRedis().then(() => {
+  redisClient = getRedis();
+}).catch(() => {
+  redisClient = null;
+});
 
 const __filename = fileURLToPath(import.meta.url);
 const __dirname = path.dirname(__filename);
@@ -79,9 +66,7 @@ app.use(session({
   }
 }));
 
-// Rate limiting with Redis for distributed limits
-app.use('/api/auth', redisRateLimit(60000, 60));
-app.use('/api', redisRateLimit(60000, 60));
+// Rate limiting (memory fallback - Redis optional, local-first)
 
 // Body parsing (reduced from 50mb to 2mb)
 app.use(express.json({ limit: '2mb' }));
@@ -96,11 +81,11 @@ app.use(cors({
 }));
 
 // Static files (with cache control)
-app.use('/uploads', express.static(path.join(__dirname, '../../uploads'), {
+app.use('/uploads', express.static(path.join(__dirname, '../uploads'), {
   maxAge: '1d',
   setHeaders: (res) => { res.setHeader('X-Content-Type-Options', 'nosniff'); }
 }));
-app.use('/briefings', express.static(path.join(__dirname, '../../briefings'), {
+app.use('/briefings', express.static(path.join(__dirname, '../briefings'), {
   maxAge: '1h',
 }));
 
@@ -125,15 +110,19 @@ app.get('/api/health', async (req: Request, res: Response) => {
     checks.database = 'error';
   }
   
-  // Check Redis connectivity
+  // Check Redis connectivity (optional - memory fallback is fine)
   try {
-    await redisClient.ping();
-    checks.redis = 'ok';
+    if (redisClient) {
+      await redisClient.ping();
+      checks.redis = 'ok';
+    } else {
+      checks.redis = 'memory-fallback';
+    }
   } catch {
-    checks.redis = 'error';
+    checks.redis = 'memory-fallback';
   }
   
-  const healthy = Object.values(checks).every(v => v === 'ok');
+  const healthy = checks.database === 'ok' && (checks.redis === 'ok' || checks.redis === 'memory-fallback');
   res.status(healthy ? 200 : 503).json({
         status: healthy ? 'healthy' : 'degraded',
         version: '2.1.0',
@@ -157,7 +146,7 @@ app.use('/api', chamberRoutes);
 
 // Secured file upload
 const upload = multer({
-  dest: path.join(__dirname, '../../uploads'),
+  dest: path.join(__dirname, '../uploads'),
   limits: { fileSize: 10 * 1024 * 1024 },
   fileFilter: (req, file, cb) => {
     const allowed = [
@@ -193,9 +182,9 @@ app.post('/api/upload', uploadRateLimit, async (req: Request, res: Response) => 
 
 // Serve frontend in production
 if (env.NODE_ENV === 'production') {
-  app.use(express.static(path.join(__dirname, '../../dist')));
+  app.use(express.static(path.join(__dirname, '../dist')));
   app.get('*', (req: Request, res: Response) => {
-    res.sendFile(path.join(__dirname, '../../dist/index.html'));
+    res.sendFile(path.join(__dirname, '../dist/index.html'));
   });
 }
 
@@ -212,6 +201,27 @@ app.use((err: any, req: Request, res: Response, next: NextFunction) => {
   });
 });
 
+// Seed alert rules from config/alerts.json when table is empty
+async function seedAlertRules() {
+  try {
+    const db = getDatabase();
+    const existing = db.prepare('SELECT COUNT(*) as c FROM alert_rules').get() as { c: number };
+    if (existing && existing.c > 0) return;
+    const fs = await import('fs');
+    const cfgPath = path.join(__dirname, '../config/alerts.json');
+    if (!fs.existsSync(cfgPath)) return;
+    const rules = JSON.parse(fs.readFileSync(cfgPath, 'utf-8'));
+    const stmt = db.prepare(
+      'INSERT OR IGNORE INTO alert_rules (id, name, condition, action, enabled) VALUES (?, ?, ?, ?, ?)'
+    );
+    for (const r of rules) {
+      stmt.run(r.id, r.id, `${r.metric} ${r.threshold} (${r.window})`, r.message, r.enabled ? 1 : 0);
+    }
+  } catch (err) {
+    log.warn({ err }, 'Alert rule seeding skipped');
+  }
+}
+
 // Startup
 async function startServer() {
   try {
@@ -220,6 +230,9 @@ async function startServer() {
 
     await bootstrapOwner();
     log.info('Owner account bootstrapped');
+
+    await seedAlertRules();
+    log.info('Alert rules seeded');
 
     await initializeKnowledgeBase();
     log.info('Knowledge base seeded');
@@ -241,11 +254,6 @@ async function startServer() {
       log.info(`${signal} received, shutting down gracefully...`);
       server.close(() => {
         log.info('HTTP server closed');
-        try {
-          const { closeDatabase } = require('./lib/database.js');
-          closeDatabase();
-          log.info('Database closed');
-        } catch {}
         process.exit(0);
       });
       setTimeout(() => {

@@ -264,6 +264,16 @@ router.post('/brief/run', requireAuth, requireRole('owner'), async (req: Request
   }
 });
 
+router.get('/briefings', requireAuth, async (req: Request, res: Response) => {
+  try {
+    const { getBriefings } = await import('../scheduler/briefing.js');
+    const briefings = await getBriefings();
+    successHelper(res, briefings);
+  } catch (error: any) {
+    errorHelper(error, res, '/briefings');
+  }
+});
+
 // =====================================================
 // CHAT / CONSCIOUSNESS ROUTES
 // =====================================================

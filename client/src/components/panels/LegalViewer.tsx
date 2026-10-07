@@ -15,11 +15,18 @@ export const LegalViewer: React.FC = () => {
     } catch { setFlags([]); }
   };
 
+  const runScan = async () => {
+    try { await apiPost('/api/legal/scan', {}); loadFlags(); } catch {}
+  };
+
   return (
     <div className="bg-void-black/60 border border-ancient-gold/10 rounded-xl p-4">
       <div className="flex items-center justify-between mb-4">
         <h3 className="text-sm font-cinzel text-ancient-gold">Legal Flags</h3>
-        <button onClick={loadFlags} className="p-1 text-ancient-gold/30 hover:text-ancient-gold"><RefreshCw className="w-3 h-3" /></button>
+        <div className="flex items-center gap-2">
+          <button onClick={runScan} className="text-[10px] px-2 py-1 bg-ancient-gold/10 border border-ancient-gold/20 rounded text-ancient-gold/50 hover:text-ancient-gold">Run Scan</button>
+          <button onClick={loadFlags} className="p-1 text-ancient-gold/30 hover:text-ancient-gold"><RefreshCw className="w-3 h-3" /></button>
+        </div>
       </div>
       <div className="space-y-2 max-h-48 overflow-y-auto">
         {flags.length === 0 && <p className="text-xs text-ancient-gold/20 text-center py-4">No flags detected</p>}

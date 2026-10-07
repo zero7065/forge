@@ -32,7 +32,9 @@ export async function generateText(options: GenerateOptions): Promise<string> {
   }
 
   try {
-    const groqModel = model === 'deep' ? 'llama-3.3-70b-versatile' : 'llama-3.1-8b-instant';
+    const groqModel = model === 'deep'
+      ? (process.env.GROQ_MODEL_DEEP || 'openai/gpt-oss-120b')
+      : (process.env.GROQ_MODEL_FAST || 'openai/gpt-oss-20b');
     const completion = await groq.chat.completions.create({
       messages: [
         ...(systemPrompt ? [{ role: 'system' as const, content: systemPrompt }] : []),

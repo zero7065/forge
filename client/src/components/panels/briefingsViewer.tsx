@@ -16,11 +16,18 @@ export const BriefingsViewer: React.FC = () => {
     } catch { setBriefings([]); }
   };
 
+  const runBriefing = async () => {
+    try { await apiPost('/api/brief/run', {}); loadBriefings(); } catch {}
+  };
+
   return (
     <div className="bg-void-black/60 border border-ancient-gold/10 rounded-xl p-4">
       <div className="flex items-center justify-between mb-4">
         <h3 className="text-sm font-cinzel text-ancient-gold">Daily Briefings</h3>
-        <button onClick={loadBriefings} className="p-1 text-ancient-gold/30 hover:text-ancient-gold"><RefreshCw className="w-3 h-3" /></button>
+        <div className="flex items-center gap-2">
+          <button onClick={runBriefing} className="text-[10px] px-2 py-1 bg-ancient-gold/10 border border-ancient-gold/20 rounded text-ancient-gold/50 hover:text-ancient-gold">Run Today</button>
+          <button onClick={loadBriefings} className="p-1 text-ancient-gold/30 hover:text-ancient-gold"><RefreshCw className="w-3 h-3" /></button>
+        </div>
       </div>
       {selected ? (
         <div>

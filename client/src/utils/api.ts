@@ -129,6 +129,7 @@ export async function apiGetLegalFlags() {
 
 export async function apiRunLegalScan() {
   return apiPost('/api/legal/scan', {});
+}
 
 // Briefings
 export async function apiGetBriefings() {
@@ -137,6 +138,7 @@ export async function apiGetBriefings() {
 
 export async function apiRunBriefing() {
   return apiPost('/api/brief/run', {});
+}
 
 // Audit
 export async function apiGetAuditLog(limit = 100, offset = 0) {
