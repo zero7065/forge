@@ -28,6 +28,7 @@ import { initializeKnowledgeBase } from './ai/knowledge-base.js';
 import { loadPersonalityModes } from './ai/personality-modes/index.js';
 import { bootstrapOwner } from './auth/auth-service.js';
 import { initConsolidation } from './scheduler/consolidation.js';
+import { recordLatency } from './lib/metrics.js';
 
 // Module-level Redis handles (null = memory fallback, fully local)
 let redisClient: any = null;
@@ -89,11 +90,12 @@ app.use('/briefings', express.static(path.join(__dirname, '../briefings'), {
   maxAge: '1h',
 }));
 
-// Request logging
+// Request logging + live latency tracking (feeds alert rules)
 app.use((req: Request, res: Response, next: NextFunction) => {
   const start = Date.now();
   res.on('finish', () => {
     const duration = Date.now() - start;
+    recordLatency(duration);
     log.info({ method: req.method, path: req.path, status: res.statusCode, duration: `${duration}ms` });
   });
   next();
@@ -205,17 +207,19 @@ app.use((err: any, req: Request, res: Response, next: NextFunction) => {
 async function seedAlertRules() {
   try {
     const db = getDatabase();
-    const existing = db.prepare('SELECT COUNT(*) as c FROM alert_rules').get() as { c: number };
-    if (existing && existing.c > 0) return;
     const fs = await import('fs');
     const cfgPath = path.join(__dirname, '../config/alerts.json');
     if (!fs.existsSync(cfgPath)) return;
     const rules = JSON.parse(fs.readFileSync(cfgPath, 'utf-8'));
     const stmt = db.prepare(
-      'INSERT OR IGNORE INTO alert_rules (id, name, condition, action, enabled) VALUES (?, ?, ?, ?, ?)'
+      'INSERT OR IGNORE INTO alert_rules (id, name, source, metric, condition, window, action, enabled) VALUES (?, ?, ?, ?, ?, ?, ?, ?)'
+    );
+    const normalize = db.prepare(
+      'UPDATE alert_rules SET name = ?, source = ?, metric = ?, condition = ?, window = ?, action = ?, enabled = ? WHERE id = ?'
     );
     for (const r of rules) {
-      stmt.run(r.id, r.id, `${r.metric} ${r.threshold} (${r.window})`, r.message, r.enabled ? 1 : 0);
+      stmt.run(r.id, r.id, r.source || '', r.metric || '', r.threshold || '', r.window || '1h', r.message || '', r.enabled ? 1 : 0);
+      normalize.run(r.id, r.source || '', r.metric || '', r.threshold || '', r.window || '1h', r.message || '', r.enabled ? 1 : 0, r.id);
     }
   } catch (err) {
     log.warn({ err }, 'Alert rule seeding skipped');

@@ -218,9 +218,9 @@ router.get('/alerts', requireAuth, async (req: Request, res: Response) => {
 
 router.post('/alerts/run', requireAuth, requireRole('owner'), async (req: Request, res: Response) => {
   try {
-    const { runAlertChecks } = await import('../scheduler/briefing.js');
-    await runAlertChecks();
-    successHelper(res, null, 'Alert checks completed');
+    const { runAlertChecks } = await import('../scheduler/index.js');
+    const result = await runAlertChecks();
+    successHelper(res, result, 'Alert checks completed');
   } catch (error: any) {
     errorHelper(error, res, '/alerts/run');
   }
@@ -242,7 +242,7 @@ router.get('/legal', requireAuth, async (req: Request, res: Response) => {
 
 router.post('/legal/scan', requireAuth, requireRole('owner'), async (req: Request, res: Response) => {
   try {
-    const { runLegalScan } = await import('../scheduler/briefing.js');
+    const { runLegalScan } = await import('../scheduler/index.js');
     const result = await runLegalScan();
     successHelper(res, result);
   } catch (error: any) {
@@ -256,7 +256,7 @@ router.post('/legal/scan', requireAuth, requireRole('owner'), async (req: Reques
 
 router.post('/brief/run', requireAuth, requireRole('owner'), async (req: Request, res: Response) => {
   try {
-    const { generateDailyBriefing } = await import('../scheduler/briefing.js');
+    const { generateDailyBriefing } = await import('../scheduler/index.js');
     const result = await generateDailyBriefing();
     successHelper(res, result);
   } catch (error: any) {

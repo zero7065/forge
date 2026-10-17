@@ -28,7 +28,8 @@ export function registerMigration(migration: Migration) {
 }
 
 export function getAppliedMigrations(): string[] {
-  return db.prepare('SELECT name FROM _migrations').all() as { name: string }[];
+  const rows = db.prepare('SELECT name FROM _migrations').all() as { name: string }[];
+  return rows.map(r => r.name);
 }
 
 export function migrate(): void {

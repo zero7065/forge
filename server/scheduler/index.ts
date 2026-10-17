@@ -4,6 +4,11 @@ import { getPrimeInsights } from '../ai/consciousness/prime.js';
 import { getCoreWhisper } from '../ai/consciousness/core.js';
 import { getShadeResponse } from '../ai/consciousness/shade.js';
 import { auditLog } from '../audit/audit-log.js';
+import { avgLatency } from '../lib/metrics.js';
+import { randomUUID } from 'crypto';
+import fs from 'fs';
+import path from 'path';
+import Parser from 'rss-parser';
 import cron from 'node-cron';
 
 const db = getDatabase();
@@ -83,38 +88,172 @@ async function generateDailyBriefing() {
   }
 }
 
+function parseWindow(window: string): number {
+  const m = /^(\d+)\s*([smh])$/i.exec((window || '').trim());
+  if (!m) return 60 * 60 * 1000;
+  const n = parseInt(m[1], 10);
+  const unit = m[2].toLowerCase();
+  if (unit === 's') return n * 1000;
+  if (unit === 'm') return n * 60 * 1000;
+  return n * 60 * 60 * 1000;
+}
+
+function parseThreshold(condition: string): { op: string; value: number } | null {
+  const m = /^\s*(<=|>=|<|>)\s*([\d.]+)\s*$/.exec(condition || '');
+  if (!m) return null;
+  return { op: m[1], value: parseFloat(m[2]) };
+}
+
+function compareValue(op: string, actual: number, expected: number): boolean {
+  if (op === '<') return actual < expected;
+  if (op === '>') return actual > expected;
+  if (op === '<=') return actual <= expected;
+  if (op === '>=') return actual >= expected;
+  return false;
+}
+
+// Resolve a rule to a LIVE metric value from local data + runtime metrics.
+// Returns null when the rule's source has no backing data (rule is skipped).
+function resolveMetric(rule: any, sinceIso: string): number | null {
+  const source = String(rule.source || rule.name || '').toLowerCase();
+  const metric = String(rule.metric || rule.condition || '').toLowerCase();
+  const text = `${source} ${metric} ${rule.name || ''}`.toLowerCase();
+
+  if (text.includes('signup') || text.includes('app_users')) {
+    const row = db.prepare(
+      "SELECT COUNT(*) as c FROM users WHERE created_at >= ?"
+    ).get(sinceIso) as { c: number };
+    return row?.c ?? 0;
+  }
+
+  if (text.includes('error') || text.includes('system_logs')) {
+    const row = db.prepare(
+      "SELECT COUNT(*) as c FROM audit_log WHERE created_at >= ? AND (risk_score > 0 OR action LIKE '%fail%' OR action LIKE '%error%')"
+    ).get(sinceIso) as { c: number };
+    return row?.c ?? 0;
+  }
+
+  if (text.includes('response') || text.includes('latency')) {
+    return avgLatency();
+  }
+
+  return null;
+}
+
 async function runAlertChecks() {
   const rules = db.prepare('SELECT * FROM alert_rules WHERE enabled = 1').all() as any[];
-  
+  let triggered = 0;
+  let skipped = 0;
+
   for (const rule of rules) {
     try {
-      // Evaluate condition (simplified - in production use safe eval)
-      const shouldTrigger = evalCondition(rule.condition);
+      const windowMs = parseWindow(rule.window || '1h');
+      const sinceIso = new Date(Date.now() - windowMs).toISOString().slice(0, 19).replace('T', ' ');
+      const threshold = parseThreshold(rule.condition);
+      if (!threshold) {
+        skipped++;
+        continue;
+      }
+      const actual = resolveMetric(rule, sinceIso);
+      if (actual === null) {
+        skipped++;
+        continue;
+      }
+      const shouldTrigger = compareValue(threshold.op, actual, threshold.value);
       if (shouldTrigger) {
+        triggered++;
         await auditLog({
           actor: 'system',
           action: 'alert_triggered',
-          input: { rule: rule.name, condition: rule.condition },
+          input: { rule: rule.name, condition: rule.condition, actual },
           output: { action: rule.action },
           risk_score: 0.3
         });
-        
+
         db.prepare('UPDATE alert_rules SET last_triggered = datetime(\'now\') WHERE id = ?').run(rule.id);
       }
     } catch (error) {
       console.error(`Alert check failed for ${rule.name}:`, error);
     }
   }
-}
 
-function evalCondition(condition: string): boolean {
-  // Simplified - replace with safe expression evaluator in production
-  return Math.random() < 0.1; // 10% chance for demo
+  return { checked: rules.length, triggered, skipped };
 }
 
 async function runLegalScan() {
-  // Simplified - in production, scan regulatory sources
-  console.log('Legal scan completed');
+  // LIVE scan: fetch enabled RSS sources, Groq judges regulatory relevance, flags stored.
+  const cfgPath = path.join(process.cwd(), 'config', 'legal-sources.json');
+  let sources: any[] = [];
+  try {
+    if (fs.existsSync(cfgPath)) {
+      sources = JSON.parse(fs.readFileSync(cfgPath, 'utf-8')).filter((s: any) => s.enabled);
+    }
+  } catch (err) {
+    console.error('Failed to read legal sources config:', err);
+    return { scanned: 0, flagged: 0, error: 'bad_config' };
+  }
+
+  const parser = new Parser({ timeout: 15000 });
+  let scanned = 0;
+  let flagged = 0;
+
+  for (const source of sources) {
+    try {
+      const feed = await parser.parseURL(source.url);
+      scanned++;
+      const items = (feed.items || []).slice(0, 8).map((it: any) => ({
+        title: it.title || '',
+        link: it.link || '',
+        snippet: (it.contentSnippet || it.content || '').slice(0, 400),
+        date: it.isoDate || it.pubDate || ''
+      })).filter((it: any) => it.title);
+
+      if (items.length === 0) continue;
+
+      const verdict = await generateText({
+        systemPrompt: `You are a regulatory analyst for a sovereign AI software business operating in Nigeria and internationally. Given recent publication headlines, return ONLY JSON: { "relevant": [{ "title": "...", "url": "...", "summary": "...", "why": "..." }] }. Include ONLY items about data protection, AI regulation, fintech/payments compliance, or tech law. Max 5. Empty array if none.`,
+        userPrompt: `Source: ${source.name}\n${JSON.stringify(items)}`,
+        temperature: 0.3,
+        maxTokens: 1200,
+        model: 'fast',
+        json: true
+      });
+
+      let relevant: any[] = [];
+      try {
+        relevant = JSON.parse(verdict).relevant || [];
+      } catch {
+        relevant = [];
+      }
+
+      const stmt = db.prepare(
+        'INSERT INTO legal_flags (id, source, title, content) VALUES (?, ?, ?, ?)'
+      );
+      for (const r of relevant.slice(0, 5)) {
+        if (!r.title) continue;
+        stmt.run(
+          randomUUID(),
+          source.name,
+          String(r.title).slice(0, 300),
+          `${r.summary || ''}\n\nWhy it matters: ${r.why || ''}\nLink: ${r.url || ''}`.slice(0, 2000)
+        );
+        flagged++;
+      }
+    } catch (err: any) {
+      console.error(`Legal scan failed for ${source.name}:`, err?.message || err);
+    }
+  }
+
+  await auditLog({
+    actor: 'system',
+    action: 'legal_scan',
+    input: { sources: sources.map((s: any) => s.name) },
+    output: { scanned, flagged },
+    risk_score: 0
+  });
+
+  console.log(`Legal scan completed: ${scanned} sources, ${flagged} flags`);
+  return { scanned, flagged };
 }
 
 export { generateDailyBriefing, runAlertChecks, runLegalScan };
