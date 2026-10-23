@@ -1,27 +1,29 @@
-FROM node:20-alpine AS base
+# Dockerfile — Synthesis Forge Production Build
+FROM node:20-alpine
+
 WORKDIR /app
 
-# Build stage
-FROM base AS build
+# Install build dependencies for native modules
+RUN apk add --no-cache python3 make g++ curl
+
+# Copy package files
 COPY package.json package-lock.json* ./
-RUN npm ci
+
+# Install dependencies
+RUN npm install --force --omit=dev
+
+# Copy application code
 COPY . .
+
+# Build the application
 RUN npm run build
 
-# Production stage
-FROM base AS production
-RUN addgroup -g 1001 -S forge && adduser -S forge -u 1001 -G forge
-COPY package.json package-lock.json* ./
-RUN npm ci --omit=dev
-COPY --from=build /app/dist ./dist
-COPY --from=build /app/client/dist ./client/dist
-COPY --from=build /app/server ./server
-COPY --from=build /app/tsconfig.json ./
-
-USER forge
-RUN mkdir -p data uploads && chown -R forge:forge data uploads
-
+# Expose port
 EXPOSE 3000
-ENV NODE_ENV=production
-HEALTHCHECK --interval=30s --timeout=3s CMD wget -qO- http://localhost:3000/health || exit 1
-CMD ["node", "--import=tsx", "server/index.js"]
+
+# Health check
+HEALTHCHECK --interval=30s --timeout=10s --start-period=5s --retries=3 \
+  CMD curl -f http://localhost:3000/api/health || exit 1
+
+# Start the server
+CMD ["node", "server/index.js"]

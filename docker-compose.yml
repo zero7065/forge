@@ -1,0 +1,54 @@
+# docker-compose.yml — Production deployment with Redis
+version: '3.8'
+
+services:
+  forge:
+    build: .
+    ports:
+      - "3000:3000"
+    env_file:
+      - .env
+    volumes:
+      - ./data:/app/data
+      - ./chromadb_data:/app/chromadb_data
+      - ./briefings:/app/briefings
+      - ./legal/flagged:/app/legal/flagged
+      - ./config:/app/config
+      - ./uploads:/app/uploads
+    depends_on:
+      - redis
+    restart: unless-stopped
+    networks:
+      - forge-network
+
+  redis:
+    image: redis:7-alpine
+    ports:
+      - "6379:6379"
+    volumes:
+      - redis_data:/data
+    restart: unless-stopped
+    command: redis-server --appendonly yes
+    networks:
+      - forge-network
+
+  nginx:
+    image: nginx:alpine
+    ports:
+      - "80:80"
+      - "443:443"
+    volumes:
+      - ./nginx.conf:/etc/nginx/nginx.conf:ro
+      - ./ssl:/etc/nginx/ssl:ro
+    depends_on:
+      - forge
+    restart: unless-stopped
+    networks:
+      - forge-network
+
+networks:
+  forge-network:
+    driver: bridge
+
+volumes:
+  redis_data:

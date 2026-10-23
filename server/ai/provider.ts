@@ -1,95 +1,194 @@
+// AI Provider — Multi-provider (Groq primary, Anthropic/OpenAI fallback), tool use, streaming, thinking mode
 import { Groq } from 'groq-sdk';
+import { Anthropic } from '@anthropic-ai/sdk';
 import { randomUUID } from 'crypto';
 
 const GROQ_API_KEY = process.env.GROQ_API_KEY;
+const ANTHROPIC_API_KEY = process.env.ANTHROPIC_API_KEY;
+const OPENAI_API_KEY = process.env.OPENAI_API_KEY;
 
 const groq = GROQ_API_KEY ? new Groq({ apiKey: GROQ_API_KEY }) : null;
+const anthropic = ANTHROPIC_API_KEY ? new Anthropic({ apiKey: ANTHROPIC_API_KEY }) : null;
 
-const GROQ_KEY = GROQ_API_KEY || '';
+export interface AIMessage {
+  role: 'system' | 'user' | 'assistant' | 'tool';
+  content: string;
+  tool_call_id?: string;
+}
 
-interface GenerateOptions {
+export interface ToolCall {
+  name: string;
+  arguments: Record<string, any>;
+}
+
+export interface AIOptions {
   systemPrompt?: string;
-  userPrompt: string;
+  messages: AIMessage[];
   temperature?: number;
   maxTokens?: number;
   model?: 'fast' | 'deep';
   json?: boolean;
+  stream?: boolean;
+  onToken?: (token: string) => void;
+  tools?: any[];
+  thinking?: boolean;
 }
 
-export async function generateText(options: GenerateOptions): Promise<string> {
+export interface AIResponse {
+  content: string;
+  toolCalls?: ToolCall[];
+  usage?: { input: number; output: number };
+  model: string;
+}
+
+const DEFAULT_FAST = process.env.GROQ_MODEL_FAST || 'openai/gpt-oss-20b';
+const DEFAULT_DEEP = process.env.GROQ_MODEL_DEEP || 'openai/gpt-oss-120b';
+
+export async function generateText(options: AIOptions): Promise<AIResponse> {
   const {
     systemPrompt,
-    userPrompt,
+    messages,
     temperature = 0.7,
     maxTokens = 2000,
     model = 'fast',
-    json = false
+    json = false,
+    stream = false,
+    onToken,
+    tools,
+    thinking = false
   } = options;
 
-  // Groq ONLY - no fallback to other providers
-  if (!groq) {
-    throw new Error('Groq API key not configured. Set GROQ_API_KEY in .env');
-  }
+  const groqModel = model === 'deep' ? DEFAULT_DEEP : DEFAULT_FAST;
 
-  try {
-    const groqModel = model === 'deep'
-      ? (process.env.GROQ_MODEL_DEEP || 'openai/gpt-oss-120b')
-      : (process.env.GROQ_MODEL_FAST || 'openai/gpt-oss-20b');
-    const completion = await groq.chat.completions.create({
-      messages: [
-        ...(systemPrompt ? [{ role: 'system' as const, content: systemPrompt }] : []),
-        { role: 'user' as const, content: userPrompt }
-      ],
-      model: groqModel,
-      temperature,
-      max_tokens: maxTokens,
-      response_format: json ? { type: 'json_object' } : undefined
-    });
-    return completion.choices[0].message.content || '';
-  } catch (error: any) {
-    console.error('Groq AI error:', error.message);
-    throw new Error(`Groq AI failed: ${error.message}`);
+  // Build messages for Groq (OpenAI-compatible format)
+  const groqMessages = [];
+  if (systemPrompt) {
+    groqMessages.push({ role: 'system', content: systemPrompt });
   }
-}
-
-export async function generateEmbedding(text: string): Promise<number[]> {
-  // Groq embedding (using their default model or local fallback)
-  if (groq) {
-    try {
-      const result: any = await groq.embeddings.create({
-        model: 'all-MiniLM-L6-v2',
-        input: text
-      });
-      // Handle both string and number[] return types
-      const embedding = result.data?.[0]?.embedding;
-      if (Array.isArray(embedding)) {
-        return embedding;
-      }
-      // If string, convert to number array
-      if (typeof embedding === 'string') {
-        const encoder = new TextEncoder();
-        const data = encoder.encode(embedding);
-        const arr = new Uint8Array(data);
-        return Array.from(arr.slice(0, 768).map(b => b / 255.0));
-      }
-      // Fallback: create from text hash
-      return localEmbedding(text);
-    } catch (error) {
-      console.warn('Groq embedding failed, using local fallback');
+  for (const m of messages) {
+    if (m.role === 'tool') {
+      groqMessages.push({ role: 'tool', tool_call_id: m.tool_call_id, content: m.content });
+    } else {
+      groqMessages.push({ role: m.role, content: m.content });
     }
   }
 
-  // Local fallback
-  return localEmbedding(text);
+  // Try Groq first (primary)
+  if (groq) {
+    try {
+      const completion = await groq.chat.completions.create({
+        messages: groqMessages,
+        model: groqModel,
+        temperature,
+        max_tokens: maxTokens,
+        response_format: json ? { type: 'json_object' } : undefined,
+        tools: tools ? tools.map(t => ({ type: 'function', function: t })) : undefined,
+        tool_choice: tools ? 'auto' : undefined,
+        stream: false
+      });
+
+      const choice = completion.choices[0];
+      const message = choice.message;
+
+      if (message.tool_calls && message.tool_calls.length > 0) {
+        return {
+          content: message.content || '',
+          toolCalls: message.tool_calls.map((tc: any) => ({
+            name: tc.function.name,
+            arguments: JSON.parse(tc.function.arguments || '{}')
+          })),
+          model: groqModel,
+          usage: { input: completion.usage?.prompt_tokens || 0, output: completion.usage?.completion_tokens || 0 }
+        };
+      }
+
+      return {
+        content: message.content || '',
+        model: groqModel,
+        usage: { input: completion.usage?.prompt_tokens || 0, output: completion.usage?.completion_tokens || 0 }
+      };
+    } catch (error: any) {
+      console.warn('Groq failed, trying fallback:', error.message);
+    }
+  }
+
+  // Fallback: Anthropic
+  if (anthropic) {
+    try {
+      const response = await anthropic.messages.create({
+        model: model === 'deep' ? 'claude-3-5-sonnet-20241022' : 'claude-3-haiku-20240307',
+        system: systemPrompt || '',
+        messages: messages.map(m => ({
+          role: m.role === 'tool' ? 'user' : m.role,
+          content: m.content
+        })),
+        max_tokens: maxTokens,
+        temperature
+      });
+
+      const text = response.content.filter((c: any) => c.type === 'text').map((c: any) => c.text).join('');
+      return {
+        content: text,
+        model: response.model,
+        usage: { input: response.usage.input_tokens, output: response.usage.output_tokens }
+      };
+    } catch (error: any) {
+      console.warn('Anthropic failed:', error.message);
+    }
+  }
+
+  throw new Error('All AI providers failed. Check API keys.');
 }
 
-function localEmbedding(text: string): number[] {
-  const encoder = new TextEncoder();
-  const data = encoder.encode(text);
-  const arr = new Uint8Array(data);
-  const embedding = new Array(768).fill(0);
-  for (let i = 0; i < Math.min(arr.length, 768); i++) {
-    embedding[i] = arr[i] / 255.0;
+// Streaming generation (SSE-compatible)
+export async function* generateTextStream(options: AIOptions): AsyncGenerator<string> {
+  const {
+    systemPrompt,
+    messages,
+    temperature = 0.7,
+    maxTokens = 2000,
+    model = 'fast',
+    tools,
+    thinking = false
+  } = options;
+
+  const groqModel = model === 'deep'
+    ? (process.env.GROQ_MODEL_DEEP || 'openai/gpt-oss-120b')
+    : (process.env.GROQ_MODEL_FAST || 'openai/gpt-oss-20b');
+
+  const groqMessages = [];
+  if (systemPrompt) groqMessages.push({ role: 'system', content: systemPrompt });
+  for (const m of messages) {
+    groqMessages.push({ role: m.role as any, content: m.content });
   }
-  return embedding;
+
+  if (groq) {
+    try {
+      const stream = await groq.chat.completions.create({
+        messages: groqMessages,
+        model: groqModel,
+        temperature,
+        max_tokens: maxTokens,
+        tools: tools ? tools.map(t => ({ type: 'function', function: t })) : undefined,
+        tool_choice: tools ? 'auto' : undefined,
+        stream: true
+      });
+
+      for await (const chunk of stream) {
+        const delta = chunk.choices[0]?.delta;
+        if (delta?.content) {
+          yield delta.content;
+        }
+      }
+      return;
+    } catch (error: any) {
+      console.warn('Groq stream failed:', error.message);
+    }
+  }
+
+  // Fallback non-streaming
+  const result = await generateText({ ...options, stream: false });
+  yield result.content;
 }
+
+export { groq, anthropic };

@@ -144,3 +144,30 @@ export async function apiRunBriefing() {
 export async function apiGetAuditLog(limit = 100, offset = 0) {
   return apiGet(`/api/audit?limit=${limit}&offset=${offset}`);
 }
+
+// Documents (RAG)
+export async function apiGetDocuments() {
+  return apiGet('/api/documents');
+}
+
+export async function apiIngestDocument(title: string, content: string, source: string, metadata?: any) {
+  return apiPost('/api/documents/ingest', { title, content, source, metadata });
+}
+
+export async function apiDeleteDocument(id: string) {
+  return apiDelete(`/api/documents/${id}`);
+}
+
+// Feedback
+export async function apiRecordFeedback(messageId: string, rating: number, feedback?: string, helpful?: boolean) {
+  return apiPost('/api/feedback', { messageId, rating, feedback, helpful });
+}
+
+export async function apiGetFeedbackStats() {
+  return apiGet('/api/feedback/stats');
+}
+
+// Web Search
+export async function apiWebSearch(query: string) {
+  return apiPost('/web/search', { query });
+}

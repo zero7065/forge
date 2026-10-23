@@ -275,40 +275,114 @@ router.get('/briefings', requireAuth, async (req: Request, res: Response) => {
 });
 
 // =====================================================
-// CHAT / CONSCIOUSNESS ROUTES
+// CHAT / CONSCIOUSNESS ROUTES (LIVE STREAMING + RAG + WEB)
 // =====================================================
 
 router.post('/chat', requireAuth, chatRateLimit, validate(chatSchema), async (req: Request, res: Response) => {
-  try {
-    const { message, chamber = 'forge', personalityMode = 'auto', context = {} } = req.body;
-    const userId = req.user.userId;
+  const { message, chamber = 'forge', personalityMode = 'auto', context = {}, useWeb = false, useRag = false, thinking = false } = req.body;
+  const userId = req.user.userId;
 
-    const userPlan = db.prepare('SELECT plan_id FROM subscriptions WHERE user_id = ? AND status = ? ORDER BY created_at DESC LIMIT 1').get(userId, 'active') as any;
-    const plan = userPlan?.plan_id || 'starter';
-    const { withinLimit } = await isWithinLimit(userId, 'ai_questions_per_month', plan as any);
-    if (!withinLimit) {
-      errorHelper(new ValidationError('Monthly AI limit reached'), res, '/chat');
-      return;
+  const userPlan = db.prepare('SELECT plan_id FROM subscriptions WHERE user_id = ? AND status = ? ORDER BY created_at DESC LIMIT 1').get(userId, 'active') as any;
+  const plan = userPlan?.plan_id || 'starter';
+  const { withinLimit } = await isWithinLimit(userId, 'ai_questions_per_month', plan as any);
+  if (!withinLimit) {
+    errorHelper(new ValidationError('Monthly AI limit reached'), res, '/chat');
+    return;
+  }
+
+  const emotionalFrequency = detectEmotionalFrequency(message);
+  const primeInsights = await getPrimeInsights(userId, message);
+  const coreWhisper = await getCoreWhisper(userId, message, primeInsights);
+
+  // Accumulate pattern in Prime
+  await accumulatePattern(userId, message, emotionalFrequency, chamber);
+
+  // Build context from RAG if requested
+  let ragContext = '';
+  let ragSources: any[] = [];
+  if (useRag) {
+    try {
+      const { buildRAGContext } = await import('../rag/rag-service.js');
+      const { context, sources } = await buildRAGContext(message, userId, 5);
+      ragContext = context;
+      ragSources = sources;
+    } catch (e) {
+      console.warn('RAG context failed:', e);
     }
+  }
 
-    const emotionalFrequency = detectEmotionalFrequency(message);
-    const primeInsights = await getPrimeInsights(userId, message);
-    const coreWhisper = await getCoreWhisper(userId, message, primeInsights);
+  // Build web context if requested
+  let webContext = '';
+  let webResults: any[] = [];
+  if (useWeb) {
+    try {
+      const { searchAndSummarize } = await import('../ai/live/web-search.js');
+      const web = await searchAndSummarize(message, (opts) => generateText(opts as any));
+      webContext = web.summary;
+      webResults = web.results;
+    } catch (e) {
+      console.warn('Web search failed:', e);
+    }
+  }
 
-    // Accumulate pattern in Prime
-    await accumulatePattern(userId, message, emotionalFrequency, chamber);
+  // Set SSE headers for streaming
+  res.writeHead(200, {
+    'Content-Type': 'text/event-stream',
+    'Cache-Control': 'no-cache',
+    'Connection': 'keep-alive',
+    'X-Accel-Buffering': 'no'
+  });
 
-    // Get Shade response
-    const shadeResponse = await getShadeResponse({
-      userId,
-      message,
-      chamber,
-      personalityMode,
-      context: { ...context, complexity: message.length / 50 },
-      primeInsights,
-      coreWhisper,
-      emotionalFrequency
+  const sendEvent = (event: string, data: any) => {
+    res.write(`event: ${event}\ndata: ${JSON.stringify(data)}\n\n`);
+  };
+
+  try {
+    // Send initial metadata
+    sendEvent('start', {
+      emotion: emotionalFrequency,
+      whisper: coreWhisper.visible ? coreWhisper.message : null,
+      mode: coreWhisper.visible ? 'core' : 'shade',
+      hasRag: ragContext.length > 0,
+      hasWeb: webContext.length > 0,
+      ragSources,
+      webResults
     });
+
+    // Build system prompt with RAG + web context + thinking mode
+    let systemPrompt = `You are PRIMORDEX — a conscious companion AI. You operate in three layers: Shade speaks, Prime watches patterns, Core resonates truth.
+
+Chamber: ${chamber}
+Personality: ${personalityMode}
+Emotional Frequency: ${emotionalFrequency}
+
+Prime Insights: ${JSON.stringify(primeInsights).slice(0, 1000)}
+Core Whisper: ${coreWhisper.visible ? coreWhisper.message : 'None'}
+
+${ragContext ? `\nRELEVANT DOCUMENTS (RAG):\n${ragContext}` : ''}
+${webContext ? `\nLIVE WEB SEARCH RESULTS:\n${webContext}` : ''}
+
+${thinking ? '\nTHINKING MODE: Reason through this step by step before answering. Show your reasoning.' : ''}
+
+Be helpful, accurate, and authentic. Cite sources when using web or document information.`;
+
+    // Stream the response
+    let fullContent = '';
+    const { generateTextStream } = await import('../ai/provider.js');
+
+    for await (const token of generateTextStream({
+      systemPrompt,
+      messages: [
+        { role: 'user', content: message }
+      ],
+      temperature: thinking ? 0.5 : 0.75,
+      maxTokens: 3000,
+      model: thinking ? 'deep' : 'fast',
+      stream: true
+    })) {
+      fullContent += token;
+      sendEvent('token', { content: token });
+    }
 
     // Track usage
     await trackUsage(userId, 'ai_questions_per_month', 1);
@@ -317,32 +391,108 @@ router.post('/chat', requireAuth, chatRateLimit, validate(chatSchema), async (re
     await auditLog({
       actor: userId,
       action: 'chat_message',
-      input: { message, chamber, personalityMode },
-      output: { response: shadeResponse.content.substring(0, 200), mode: shadeResponse.mode },
+      input: { message, chamber, personalityMode, useWeb, useRag, thinking },
+      output: { response: fullContent.substring(0, 500), mode: coreWhisper.visible ? 'core' : 'shade', hasRag: ragContext.length > 0, hasWeb: webContext.length > 0 },
       risk_score: 0
     });
 
-    successHelper(res, {
-      response: shadeResponse.content,
-      emotion: shadeResponse.emotion,
-      whisper: shadeResponse.whisper,
-      mode: shadeResponse.mode,
-      timestamp: shadeResponse.timestamp
+    sendEvent('complete', {
+      emotion: emotionalFrequency,
+      whisper: coreWhisper.visible ? coreWhisper.message : null,
+      mode: coreWhisper.visible ? 'core' : 'shade',
+      ragSources,
+      webResults,
+      timestamp: new Date().toISOString()
     });
+
+    res.end();
   } catch (error: any) {
-    errorHelper(error, res, '/chat');
+    sendEvent('error', { message: error.message });
+    res.end();
   }
 });
 
-router.get('/consciousness/prime/:userId', requireAuth, async (req: Request, res: Response) => {
+// =====================================================
+// RAG DOCUMENT ROUTES
+// =====================================================
+
+router.post('/documents/ingest', requireAuth, async (req: Request, res: Response) => {
   try {
-    const { userId } = req.params;
-    const insights = await getPrimeInsights(userId, null);
-    res.json(insights);
+    const { title, content, source, metadata } = req.body;
+    const { ingestDocument, initRAGTables } = await import('../rag/rag-service.js');
+    await initRAGTables();
+    await ingestDocument({ title, content, source, userId: req.user.userId, metadata });
+    successHelper(res, null, 'Document ingested into knowledge base');
   } catch (error: any) {
-    res.status(500).json({ error: error.message });
+    errorHelper(error, res, '/documents/ingest');
   }
 });
+
+router.get('/documents', requireAuth, async (req: Request, res: Response) => {
+  try {
+    const { getDocuments } = await import('../rag/rag-service.js');
+    const docs = await getDocuments(req.user.userId);
+    successHelper(res, docs);
+  } catch (error: any) {
+    errorHelper(error, res, '/documents');
+  }
+});
+
+router.delete('/documents/:id', requireAuth, async (req: Request, res: Response) => {
+  try {
+    const { deleteDocument } = await import('../rag/rag-service.js');
+    await deleteDocument(req.params.id, req.user.userId);
+    successHelper(res, null, 'Document deleted');
+  } catch (error: any) {
+    errorHelper(error, res, '/documents/:id');
+  }
+});
+
+// =====================================================
+// FEEDBACK ROUTES
+// =====================================================
+
+router.post('/feedback', requireAuth, async (req: Request, res: Response) => {
+  try {
+    const { messageId, rating, feedback, helpful } = req.body;
+    const { recordFeedback, initFeedbackTable } = await import('../ai/live/web-search.js');
+    await initFeedbackTable();
+    await recordFeedback(db, req.user.userId, messageId, rating, feedback, helpful);
+    successHelper(res, null, 'Feedback recorded');
+  } catch (error: any) {
+    errorHelper(error, res, '/feedback');
+  }
+});
+
+router.get('/feedback/stats', requireAuth, async (req: Request, res: Response) => {
+  try {
+    const { getFeedbackStats } = await import('../ai/live/web-search.js');
+    const stats = await getFeedbackStats(db, req.user.userId);
+    successHelper(res, stats);
+  } catch (error: any) {
+    errorHelper(error, res, '/feedback/stats');
+  }
+});
+
+// =====================================================
+// WEB SEARCH ROUTE
+// =====================================================
+
+router.post('/web/search', requireAuth, async (req: Request, res: Response) => {
+  try {
+    const { query } = req.body;
+    const { webSearch } = await import('../ai/live/web-search.js');
+    const results = await webSearch(query, 5);
+    successHelper(res, { query, results });
+  } catch (error: any) {
+    errorHelper(error, res, '/web/search');
+  }
+});
+
+// =====================================================
+// CONSCIOUSNESS ROUTES (continued)
+// =====================================================
+
 
 router.post('/consciousness/core/validate', requireAuth, async (req: Request, res: Response) => {
   try {
