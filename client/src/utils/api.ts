@@ -171,3 +171,16 @@ export async function apiGetFeedbackStats() {
 export async function apiWebSearch(query: string) {
   return apiPost('/web/search', { query });
 }
+
+// AI Gateway
+export async function apiGetAIHealth() {
+  return apiGet('/ai/health');
+}
+
+export async function apiGetAILogs(limit = 50, offset = 0) {
+  return apiGet(`/ai/logs?limit=${limit}&offset=${offset}`);
+}
+
+export async function apiExportAILogs(format: 'json' | 'csv' = 'json') {
+  return apiGet(`/ai/export?format=${format}`);
+}

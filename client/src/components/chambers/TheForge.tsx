@@ -38,13 +38,27 @@ export const TheForge: React.FC = () => {
 
       {/* Settings Modal */}
       {showSettings && (
-        <motion.div initial={{ opacity: 0 }} animate={{ opacity: 1 }} exit={{ opacity: 0 }} className="fixed inset-0 bg-void-black/80 backdrop-blur-sm z-50 flex items-center justify-center" onClick={() => setShowSettings(false)}>
-          <motion.div initial={{ scale: 0.9, opacity: 0 }} animate={{ scale: 1, opacity: 1 }} exit={{ scale: 0.9, opacity: 0 }} className="bg-void-black border border-amber-500/20 rounded-2xl p-8 max-w-2xl w-full mx-4" onClick={e => e.stopPropagation()}>
+        <motion.div
+          initial={{ opacity: 0 }}
+          animate={{ opacity: 1 }}
+          exit={{ opacity: 0 }}
+          className="fixed inset-0 bg-void-black/80 backdrop-blur-sm z-50 flex items-center justify-center"
+          onClick={() => setShowSettings(false)}
+        >
+          <motion.div
+            initial={{ scale: 0.9, opacity: 0 }}
+            animate={{ scale: 1, opacity: 1 }}
+            exit={{ scale: 0.9, opacity: 0 }}
+            className="bg-void-black border border-amber-500/20 rounded-2xl p-8 max-w-2xl w-full mx-4"
+            onClick={e => e.stopPropagation()}
+          >
             <div className="flex items-center justify-between mb-6">
               <h3 className="text-xl font-cinzel text-ghost-white">Forge Settings</h3>
-              <button onClick={() => setShowSettings(false)} className="p-2 text-ghost-white/40 hover:text-ghost-white"><X className="w-4 h-4" /></button>
+              <button onClick={() => setShowSettings(false)} className="p-2 text-ghost-white/40 hover:text-ghost-white">
+                <X className="w-4 h-4" />
+              </button>
             </div>
-            
+
             <div className="space-y-6">
               <div>
                 <h4 className="text-sm font-medium text-ancient-gold/60 uppercase tracking-tighter mb-3">AI Model</h4>
@@ -53,7 +67,7 @@ export const TheForge: React.FC = () => {
                   <span className="text-sm text-ghost-white">Groq — openai/gpt-oss-20b (fast)</span>
                 </div>
               </div>
-              
+
               <div>
                 <h4 className="text-sm font-medium text-ancient-gold/60 uppercase tracking-tighter mb-3">Personality Modes</h4>
                 <div className="space-y-2">
@@ -81,7 +95,7 @@ export const TheForge: React.FC = () => {
                   ))}
                 </div>
               </div>
-              
+
               <div className="flex items-center justify-between pt-4 border-t border-void-black/30">
                 <div>
                   <h4 className="text-sm font-medium text-ancient-gold/60 uppercase tracking-tighter mb-1">Version</h4>
@@ -91,7 +105,7 @@ export const TheForge: React.FC = () => {
               </div>
             </div>
           </motion.div>
-        </div>
+        </motion.div>
       )}
     </div>
   );

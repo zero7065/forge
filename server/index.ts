@@ -25,10 +25,12 @@ import { initRedis, getRedis } from './lib/redis.js';
 import { getDatabase } from './lib/database.js';
 import { initScheduler } from './scheduler/index.js';
 import { initializeKnowledgeBase } from './ai/knowledge-base.js';
+import { initRAGTables } from './rag/rag-service.js';
 import { loadPersonalityModes } from './ai/personality-modes/index.js';
 import { bootstrapOwner } from './auth/auth-service.js';
 import { initConsolidation } from './scheduler/consolidation.js';
 import { recordLatency } from './lib/metrics.js';
+import { initLifecycleTable } from './ai/gateway/index.js';
 
 // Module-level Redis handles (null = memory fallback, fully local)
 let redisClient: any = null;
@@ -237,6 +239,12 @@ async function startServer() {
 
     await seedAlertRules();
     log.info('Alert rules seeded');
+
+    await initRAGTables();
+    log.info('RAG tables initialized');
+
+    await initLifecycleTable();
+    log.info('AI gateway lifecycle table initialized');
 
     await initializeKnowledgeBase();
     log.info('Knowledge base seeded');

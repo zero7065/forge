@@ -356,11 +356,11 @@ export const StreamingChat: React.FC = () => {
                   <span className="w-1 h-1 bg-void-black rounded-full" style={{ animationDelay: '0.4s' }}></span>
                 </span>
               </>
-            : (
+            ) : (
               <>
                 <ArrowRight className="w-4 h-4" />
                 <span className="ml-1">Send</span>
-              </>
+                </>
             )}
           </button>
         </div>
