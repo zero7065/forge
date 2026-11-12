@@ -3,6 +3,9 @@
   "version": "2.0.0",
   "description": "BEYOND — Sovereign AI Operating System with RAG, live data, and Claude-level AI",
   "type": "module",
+  "overrides": {
+    "@google/generative-ai": "0.21.0"
+  },
   "scripts": {
     "dev": "concurrently \"npm run dev:server\" \"npm run dev:client\"",
     "dev:server": "tsx watch server/index.ts",
