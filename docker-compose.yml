@@ -1,4 +1,4 @@
-# docker-compose.yml — Production deployment with Redis
+# docker-compose.yml — Production deployment with Redis & Cloudflare Tunnel
 version: '3.8'
 
 services:
@@ -17,6 +17,7 @@ services:
       - ./uploads:/app/uploads
     depends_on:
       - redis
+      - nginx
     restart: unless-stopped
     networks:
       - forge-network
@@ -46,9 +47,20 @@ services:
     networks:
       - forge-network
 
+  cloudflared:
+    image: cloudflare/cloudflared:latest
+    command: tunnel --token ${CLOUDFLARE_TUNNEL_TOKEN} run
+    depends_on:
+      - forge
+    restart: unless-stopped
+    networks:
+      - forge-network
+
 networks:
   forge-network:
     driver: bridge
 
 volumes:
   redis_data:
+  forge-data:
+  chromadb_data:

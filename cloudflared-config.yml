@@ -1,0 +1,17 @@
+# cloudflared-config.yml — Cloudflare Tunnel configuration for Forge
+# ---------------------------------------------------------------
+# Option A: Use the tunnel token (recommended)
+#   Set CLOUDFLARE_TUNNEL_TOKEN in .env BEFORE starting cloudflared.
+#
+# Option B: Create a tunnel first (cloudflared tunnel create forge),
+# then set CLOUDFLARE_TUNNEL_TOKEN = <output> and CLOUDFLARE_TUNNEL_HOSTNAME = <hostname>.
+
+tunnel:
+  name: forge
+  # If you created the tunnel manually, point here instead:
+  # credentials-file: /path/to/your-credentials.json
+
+ingress:
+  - hostname: your-subdomain.yourdomain.com
+    service: http://localhost:3000
+  - service: http_status:404
