@@ -124,6 +124,77 @@ npm start          # node server/index.js
 - `POST /api/brief/run`, `GET /api/briefings`
 - `POST /api/chat`, `GET /api/health`
 
+## 7. Cloudflare Tunnel (Recommended for Fast Public Deployment)
+
+### Why Cloudflare Tunnel?
+- No inbound firewall rules needed
+- Automatic TLS termination
+- Global edge network (CDN + WAF + DDoS protection)
+- SQLite keeps working on your server
+
+### Prerequisites
+- Cloudflare account with a domain
+- `cloudflared` CLI installed: `cloudflare/cloudflared:latest` (Docker) or `npm install -g cloudflared`
+
+### Quick Deploy
+
+**Option A: Docker Compose (Recommended)**
+
+1. Add these to your `.env`:
+   ```env
+   CLOUDFLARE_TUNNEL_TOKEN=<your-tunnel-token>
+   CLOUDFLARE_TUNNEL_HOSTNAME=your-subdomain.yourdomain.com
+   ```
+
+2. Run:
+   ```bash
+   docker compose up -d
+   ```
+
+**Option B: Manual (no Docker)**
+
+1. Authenticate:
+   ```bash
+   cloudflared tunnel login
+   ```
+
+2. Create tunnel:
+   ```bash
+   cloudflared tunnel create forge
+   ```
+   Note the tunnel ID (e.g. `abc-123-def`).
+
+3. Route DNS:
+   ```bash
+   cloudflared tunnel route dns forge your-subdomain.yourdomain.com
+   ```
+
+4. Generate token:
+   ```bash
+   cloudflared tunnel token forge
+   ```
+   Copy the output.
+
+5. Add to `.env`:
+   ```env
+   CLOUDFLARE_TUNNEL_TOKEN=<token-from-step-4>
+   CLOUDFLARE_TUNNEL_HOSTNAME=your-subdomain.yourdomain.com
+   ```
+
+6. Start tunnel alongside server:
+   ```bash
+   cloudflared tunnel --token $CLOUDFLARE_TUNNEL_TOKEN run
+   ```
+
+### Verify
+- `GET https://your-subdomain.yourdomain.com/api/health` → `{"status":"healthy"}`
+- Login at `https://your-subdomain.yourdomain.com`
+
+### Files
+- `docker-compose.yml` — includes `cloudflared` service
+- `cloudflared-config.yml` — tunnel config (use with `--config` flag)
+- `.env.example` — includes `CLOUDFLARE_TUNNEL_TOKEN` and `CLOUDFLARE_TUNNEL_HOSTNAME`
+
 ## Security notes
 - SQLite file contains password hashes — restrict filesystem perms on `data/`.
 - Rotate `AUTH_JWT_SECRET` and `GROQ_API_KEY` periodically.
