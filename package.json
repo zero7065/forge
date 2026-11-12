@@ -3,9 +3,7 @@
   "version": "2.0.0",
   "description": "BEYOND — Sovereign AI Operating System with RAG, live data, and Claude-level AI",
   "type": "module",
-  "overrides": {
-    "@google/generative-ai": "0.21.0"
-  },
+  "overrides": {},
   "scripts": {
     "dev": "concurrently \"npm run dev:server\" \"npm run dev:client\"",
     "dev:server": "tsx watch server/index.ts",
@@ -19,10 +17,8 @@
     "docker:build": "docker build -t beyond-ai .",
     "docker:run": "docker run -p 3000:3000 --env-file .env beyond-ai"
   },
-  "dependencies": {
+"dependencies": {
     "@anthropic-ai/sdk": "^0.27.0",
-    "@google/generative-ai": "^0.21.0",
-    "@supabase/supabase-js": "^2.45.0",
     "axios": "^1.7.7",
     "bcrypt": "^5.1.1",
     "better-sqlite3": "^11.6.0",
@@ -35,13 +31,11 @@
     "express": "^4.21.0",
     "express-rate-limit": "^8.6.0",
     "express-session": "^1.19.0",
-    "connect-redis": "^7.1.1",
     "framer-motion": "^11.5.4",
     "groq-sdk": "^0.5.0",
     "helmet": "^8.3.0",
     "ioredis": "^5.4.1",
     "jsonwebtoken": "^9.0.2",
-    "langchain": "^0.1.36",
     "lucide-react": "^0.441.0",
     "memory-fs": "^0.5.0",
     "mammoth": "^1.7.0",
