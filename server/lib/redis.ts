@@ -1,7 +1,9 @@
 // Redis client - optional, graceful fallback if Redis not available
 import IORedis from 'ioredis';
 
-let redisClient: IORedis.Redis | null = null;
+type RedisClient = InstanceType<typeof IORedis>;
+
+let redisClient: RedisClient | null = null;
 
 // Initialize Redis connection (optional - silent local fallback)
 export async function initRedis(): Promise<void> {
@@ -29,7 +31,7 @@ export async function initRedis(): Promise<void> {
 }
 
 // Get the Redis client (returns null if Redis unavailable)
-export function getRedis(): IORedis.Redis | null {
+export function getRedis(): RedisClient | null {
   return redisClient;
 }
 

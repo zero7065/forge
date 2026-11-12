@@ -62,13 +62,13 @@ Generate:
 2. Whether this should interrupt Shade (true/false) — only if user is drifting from authentic signal.
 
 Return JSON: { "message": "...", "shouldInterrupt": true/false }`,
-      userPrompt: `Input: ${input}\nPrime insights: ${JSON.stringify(insights).slice(0, 300)}\nResonance: ${resonance}`,
+      messages: [{ role: 'user', content: `Input: ${input}\nPrime insights: ${JSON.stringify(insights).slice(0, 300)}\nResonance: ${resonance}` }],
       temperature: 0.9,
       maxTokens: 150,
       model: 'fast',
       json: true
     });
-    const parsed = JSON.parse(response);
+    const parsed = JSON.parse(response.content) as { message?: string; shouldInterrupt?: boolean };
     return { message: parsed.message || 'Listen closer.', shouldInterrupt: parsed.shouldInterrupt || false };
   } catch {
     return { message: 'The truth is already within you.', shouldInterrupt: false };

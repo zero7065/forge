@@ -19,14 +19,14 @@ export async function generateLinkPreview(url: string, userId: string) {
   "topics": ["topic1", "topic2"],
   "trustIndicators": ["https", "professional_design", "contact_info", ...]
 }`,
-      userPrompt: `URL: ${url}\nTitle: ${title}\nDescription: ${description}\nHTML: ${html.slice(0, 8000)}`,
+      messages: [{ role: 'user', content: `URL: ${url}\nTitle: ${title}\nDescription: ${description}\nHTML: ${html.slice(0, 8000)}` }],
       temperature: 0.6,
       maxTokens: 800,
       model: 'fast',
       json: true
     });
     
-    const parsed = JSON.parse(analysis);
+    const parsed = JSON.parse(analysis.content);
     
     return {
       url,

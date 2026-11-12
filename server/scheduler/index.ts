@@ -212,7 +212,7 @@ async function runLegalScan() {
 
       const verdict = await generateText({
         systemPrompt: `You are a regulatory analyst for a sovereign AI software business operating in Nigeria and internationally. Given recent publication headlines, return ONLY JSON: { "relevant": [{ "title": "...", "url": "...", "summary": "...", "why": "..." }] }. Include ONLY items about data protection, AI regulation, fintech/payments compliance, or tech law. Max 5. Empty array if none.`,
-        userPrompt: `Source: ${source.name}\n${JSON.stringify(items)}`,
+        messages: [{ role: 'user', content: `Source: ${source.name}\n${JSON.stringify(items)}` }],
         temperature: 0.3,
         maxTokens: 1200,
         model: 'fast',
@@ -221,7 +221,7 @@ async function runLegalScan() {
 
       let relevant: any[] = [];
       try {
-        relevant = JSON.parse(verdict).relevant || [];
+        relevant = JSON.parse(verdict.content).relevant || [];
       } catch {
         relevant = [];
       }

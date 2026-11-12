@@ -41,7 +41,7 @@ Analyze this GitHub repository and provide a JSON response with:
   "strengths": ["strength1", "strength2"],
   "improvements": ["improvement1", "improvement2"]
 }`,
-      userPrompt: JSON.stringify({
+      messages: [{ role: 'user', content: JSON.stringify({
         name: repoData.data.name,
         description: repoData.data.description,
         languages: Object.keys(languages.data),
@@ -51,14 +51,14 @@ Analyze this GitHub repository and provide a JSON response with:
         lastCommit: commits.data[0]?.commit?.committer?.date,
         commitCount: commits.data.length,
         recentCommits: commits.data.slice(0, 5).map((c: any) => c.commit.message)
-      }),
+      }) }],
       temperature: 0.5,
       maxTokens: 1500,
       model: 'deep',
       json: true
     });
     
-    const parsed = JSON.parse(analysis);
+    const parsed = JSON.parse(analysis.content);
     return {
       ...parsed,
       repoUrl,

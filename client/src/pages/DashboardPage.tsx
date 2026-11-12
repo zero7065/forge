@@ -4,7 +4,8 @@ import { motion } from 'framer-motion';
 import { 
   Sparkles, Moon, FlaskConical, ScrollText, TreePine, Target, User, Crown, 
   LayoutDashboard, Grid, Menu, X, ChevronRight, Menu as MenuIcon, 
-  Brain, Activity, Zap, Shield, FileText, Globe, Clock, Settings
+  Brain, Activity, Zap, Shield, FileText, Globe, Clock, Settings, AlertTriangle,
+  MessageCircle
 } from 'lucide-react';
 import { useAuth } from '../auth/AuthContext';
 import StreamingChat from '../components/live/StreamingChat';
@@ -104,8 +105,6 @@ const RecentActivity = () => (
     </div>
   </div>
 );
-
-import { MessageCircle } from 'lucide-react';
 
 const DashboardPage: React.FC<{ chamberId?: string }> = ({ chamberId }) => {
   const { user } = useAuth();
@@ -253,7 +252,7 @@ const DashboardPage: React.FC<{ chamberId?: string }> = ({ chamberId }) => {
                       : 'bg-void-black/30 border-white/5 hover:border-white/20 hover:bg-white/5'}`}
                   >
                     <div className="flex items-center gap-3 mb-4">
-                      <div className="w-10 h-10 rounded-xl flex items-center justify-center ${activeChamber === c.id ? `bg-${c.color}-500 text-void-black` : 'bg-white/5 text-ancient-gold/40'}" shadow="lg">
+                      <div className={`w-10 h-10 rounded-xl flex items-center justify-center shadow-lg ${activeChamber === c.id ? `bg-${c.color}-500 text-void-black` : 'bg-white/5 text-ancient-gold/40'}`}>
                         <c.icon className={`w-5 h-5 ${activeChamber === c.id ? 'text-void-black' : 'text-ancient-gold/40'}`} />
                       </div>
                       <div>

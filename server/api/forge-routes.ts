@@ -362,7 +362,15 @@ router.post('/chat', requireAuth, chatRateLimit, validate(chatSchema), async (re
     if (useWeb) {
       try {
         const { searchAndSummarize } = await import('../ai/live/web-search.js');
-        const web = await searchAndSummarize(scrubbedInput, (opts) => generateText(opts as any));
+        const web = await searchAndSummarize(scrubbedInput, (opts) => {
+          // opts is { systemPrompt, userPrompt, temperature?, maxTokens? }
+          return generateText({
+            systemPrompt: opts.systemPrompt,
+            messages: [{ role: 'user', content: opts.userPrompt }],
+            temperature: opts.temperature,
+            maxTokens: opts.maxTokens
+          }).then(r => r.content);
+        });
         webContext = web.summary;
         webResults = web.results;
       } catch (e) {
@@ -390,7 +398,6 @@ Be helpful, accurate, and authentic. Cite sources when using web or document inf
 
     // STEP 8: Stream the response through selected provider
     let outputScrubbed = false;
-    let piiFoundOutput = false;
     const { generateTextStream } = await import('../ai/provider.js');
 
     for await (const token of generateTextStream({

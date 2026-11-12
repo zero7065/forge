@@ -2,7 +2,7 @@
 // Request → Analyse → Decide → Route → Respond → Store → Synthesize
 // All AI traffic funnels through this server; no direct browser→provider calls.
 
-import { getDatabase } from '../lib/database.js';
+import { getDatabase } from '../../lib/database.js';
 import { generateText } from '../provider.js';
 import { randomUUID } from 'crypto';
 
@@ -80,7 +80,7 @@ export async function classifyIntent(message: string): Promise<IntentResult> {
   }
 }
 
-function classifyIntentFallback(message: string): IntentResult {
+export async function classifyIntentFallback(message: string): Promise<IntentResult> {
   const lower = message.toLowerCase();
   
   if (/explain|how does|teach|what is/.test(lower)) return { intent: 'explanation', confidence: 0.7, reasoning: 'keyword fallback' };
@@ -204,7 +204,7 @@ export class ProviderRouter {
     const intentPreferences: Record<AIIntent, AIProvider[]> = {
       chat: ['groq', 'anthropic', 'openai'],
       explanation: ['anthropic', 'groq', 'openai'],
-      vision: ['groq', 'anthropic', 'openai'], // vision via groq multimodal
+      vision: ['groq', 'anthropic', 'openai'],
       study_plan: ['anthropic', 'groq', 'openai'],
       prediction: ['groq', 'anthropic', 'openai'],
       code: ['groq', 'anthropic', 'openai'],

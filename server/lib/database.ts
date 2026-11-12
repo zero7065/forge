@@ -3,7 +3,7 @@ import path from 'path';
 import { fileURLToPath } from 'url';
 import Database from 'better-sqlite3';
 import { createChildLogger } from './logger.js';
-import { migrate as runMigrations } from './migrations.ts';
+import { migrate as runMigrations } from './migrations.js';
 
 const log = createChildLogger('database');
 
@@ -21,7 +21,7 @@ export function getDatabase(): Database.Database {
     db = new Database(DB_PATH);
     db.pragma('journal_mode = WAL');
     db.pragma('foreign_keys = ON');
-    runMigrations(db);
+    runMigrations();
   }
   return db;
 }

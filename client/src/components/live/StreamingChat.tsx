@@ -51,7 +51,7 @@ export const StreamingChat: React.FC = () => {
   const [isStreaming, setIsStreaming] = useState(false);
   const [useWeb, setUseWeb] = useState(false);
   const [useRag, setUseRag] = useState(false);
-  [, setError] = useState<string | null>(null);
+  const [error, setError] = useState<string | null>(null);
   const messagesEndRef = useRef<HTMLDivElement>(null);
 
   const scrollToBottom = () => {
@@ -318,7 +318,6 @@ export const StreamingChat: React.FC = () => {
               onKeyDown={handleKeyDown}
               placeholder="Ask me anything... (Shift+Enter for new line)"
               rows={1}
-              maxRows={4}
               className="w-full bg-void-black/50 border border-void-black/30 rounded-xl px-4 py-3 text-ghost-white text-sm focus:outline-none focus:border-amber-500/50 resize-none"
               disabled={isStreaming}
             />

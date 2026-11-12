@@ -11,7 +11,7 @@ import { ShowcasePage } from './pages/ShowcasePage';
 import { TransmissionsPage } from './pages/TransmissionsPage';
 import { TablePage } from './pages/TablePage';
 import { InnerSanctum } from './pages/InnerSanctum';
-import { DashboardPage } from './pages/DashboardPage';
+import DashboardPage from './pages/DashboardPage';
 import { Login } from './auth/Login';
 import { Register } from './auth/Register';
 

@@ -20,21 +20,21 @@ Return JSON with:
   "interviewQuestions": ["q1", "q2", "q3"],
   "about": "project description for candidates"
 }`,
-    userPrompt: JSON.stringify({
+    messages: [{ role: 'user', content: JSON.stringify({
       projectName: project.name,
       description: project.description,
       techStack: JSON.parse(project.tech_stack || '[]'),
       budget,
       timeline,
       requestedSkills: skills
-    }),
+    }) }],
     temperature: 0.7,
     maxTokens: 1500,
     model: 'deep',
     json: true
   });
   
-  const parsed = JSON.parse(spec);
+  const parsed = JSON.parse(spec.content);
   const id = Date.now().toString();
   
   db.prepare(`

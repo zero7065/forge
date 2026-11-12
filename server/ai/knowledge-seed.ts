@@ -1,5 +1,5 @@
-import { getDatabase } from '../lib/database.js';
 import { generateText } from './provider.js';
+import { getDatabase } from '../lib/database.js';
 
 const db = getDatabase();
 
@@ -27,7 +27,7 @@ Include:
 
 Write in the Jadai voice — layered, philosophical, and deeply grounded.
 Target 200-400 words.`,
-    userPrompt: `Create a knowledge seed for: ${gap}`,
+    messages: [{ role: 'user', content: `Create a knowledge seed for: ${gap}` }],
     temperature: 0.8,
     maxTokens: 1200,
     model: 'deep'
@@ -36,9 +36,9 @@ Target 200-400 words.`,
   const id = `seed_${Date.now()}`;
   const tags = JSON.stringify([gap, 'generated']);
 
-  db.prepare('INSERT INTO knowledge_entries (id, topic, subtopic, content, tags) VALUES (?, ?, ?, ?, ?)').run(id, gap, 'Auto-generated', content, tags);
+  db.prepare('INSERT INTO knowledge_entries (id, topic, subtopic, content, tags) VALUES (?, ?, ?, ?, ?)').run(id, gap, 'Auto-generated', content.content, tags);
 
-  return { id, topic: gap, content };
+  return { id, topic: gap, content: content.content };
 }
 
 export async function runKnowledgeSeedGeneration(userId: string): Promise<any[]> {

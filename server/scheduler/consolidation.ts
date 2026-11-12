@@ -21,16 +21,16 @@ Based on the data provided, create:
 
 Write in the Jadai voice — warm, philosophical, layered. 300-500 words.
 Format as markdown with clear sections.`,
-    userPrompt: `Generate a soul summary for this user based on:\n- Patterns: ${JSON.stringify(patterns).slice(0, 500)}\n- Core Memory: ${JSON.stringify(coreMemory).slice(0, 500)}`,
+    messages: [{ role: 'user', content: `Generate a soul summary for this user based on:\n- Patterns: ${JSON.stringify(patterns).slice(0, 500)}\n- Core Memory: ${JSON.stringify(coreMemory).slice(0, 500)}` }],
     temperature: 0.8,
     maxTokens: 2000,
     model: 'deep'
   });
 
   const id = `report_${Date.now()}`;
-  db.prepare('INSERT INTO reports (id, user_id, type, content, created_at) VALUES (?, ?, ?, ?, ?)').run(id, userId, 'soul_summary', summary, new Date().toISOString());
+  db.prepare('INSERT INTO reports (id, user_id, type, content, created_at) VALUES (?, ?, ?, ?, ?)').run(id, userId, 'soul_summary', summary.content, new Date().toISOString());
 
-  return summary;
+  return summary.content;
 }
 
 export async function runWeeklyConsolidation(): Promise<void> {

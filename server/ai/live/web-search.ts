@@ -1,5 +1,6 @@
 // Live Web Search — Real-time internet data for AI responses
 import axios from 'axios';
+import { getDatabase } from '../../lib/database.js';
 
 export interface SearchResult {
   title: string;
@@ -128,7 +129,7 @@ export async function getFeedbackStats(db: any, userId?: string): Promise<any> {
 
 // Initialize feedback table
 export async function initFeedbackTable() {
-  const { getDatabase } = await import('../lib/database.js');
+  const { getDatabase } = await import('../../lib/database.js');
   const db = getDatabase();
   db.exec(`
     CREATE TABLE IF NOT EXISTS feedback (

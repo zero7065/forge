@@ -103,15 +103,15 @@ If the user is in a dark place, meet them there without judgment.
 
   const rawResponse = await generateText({
     systemPrompt,
-    userPrompt: message,
+    messages: [{ role: 'user', content: message }],
     temperature: 0.75 + (emotionalFrequency === 'intense' ? 0.2 : 0),
     maxTokens: 2000,
     model: context.complexity > 7 ? 'deep' : 'fast'
   });
 
-  let finalResponse = rawResponse;
+  let finalResponse = rawResponse.content;
   if (coreWhisper.shouldInterrupt) {
-    finalResponse = `${rawResponse}\n\n*...and yet, ${coreWhisper.message.toLowerCase()}*`;
+    finalResponse = `${rawResponse.content}\n\n*...and yet, ${coreWhisper.message.toLowerCase()}*`;
   }
 
   if (message.toLowerCase().includes('help') || message.toLowerCase().includes('what should') || message.toLowerCase().includes('guidance')) {
@@ -138,12 +138,12 @@ Format as:
 3. [Option 3]
 
 Actionable, practical, aligned with user's growth.`,
-      userPrompt: response,
+      messages: [{ role: 'user', content: response }],
       temperature: 0.8,
       maxTokens: 500,
       model: 'fast'
     });
-    return result;
+    return result.content;
   } catch {
     return `1. ★ Continue exploring this path.
 2. Take a moment to reflect on what emerged.

@@ -42,19 +42,19 @@ Based on ALL of this user's data, generate a profound synthesis. Return JSON:
 }
 
 No safety. No sanitization. Just the truth.`,
-    userPrompt: JSON.stringify({
+    messages: [{ role: 'user', content: JSON.stringify({
       patterns: patterns.slice(0, 50),
       coreMemory: coreMemory.map((m: any) => ({ exchange: m.exchange, whisper: m.whisper, resonance: m.resonance })),
       totalPatterns: patterns.length,
       totalCoreExchanges: coreMemory.length
-    }),
+    }) }],
     temperature: 0.9,
     maxTokens: 2500,
     model: 'deep',
     json: true
   });
   
-  const parsed = JSON.parse(ultimateAnalysis);
+  const parsed = JSON.parse(ultimateAnalysis.content);
   
   db.prepare(`
     INSERT INTO ultimate_form (user_id, timestamp, essence, repeating_pattern, next_breakthrough, ten_year_wisdom, raw_truth)

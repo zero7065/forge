@@ -1,7 +1,7 @@
 // AI Provider — Multi-provider (Groq primary, Anthropic/OpenAI fallback), tool use, streaming, thinking mode
 import { Groq } from 'groq-sdk';
 import { Anthropic } from '@anthropic-ai/sdk';
-import { randomUUID } from 'crypto';
+import { randomUUID, createHash } from 'crypto';
 
 const GROQ_API_KEY = process.env.GROQ_API_KEY;
 const ANTHROPIC_API_KEY = process.env.ANTHROPIC_API_KEY;
@@ -23,6 +23,7 @@ export interface ToolCall {
 
 export interface AIOptions {
   systemPrompt?: string;
+  userPrompt?: string;
   messages: AIMessage[];
   temperature?: number;
   maxTokens?: number;
@@ -44,9 +45,21 @@ export interface AIResponse {
 const DEFAULT_FAST = process.env.GROQ_MODEL_FAST || 'openai/gpt-oss-20b';
 const DEFAULT_DEEP = process.env.GROQ_MODEL_DEEP || 'openai/gpt-oss-120b';
 
+// Generate embedding (hash-based fallback since Groq has no embeddings endpoint)
+export async function generateEmbedding(text: string): Promise<number[]> {
+  const hash = createHash('sha256').update(text).digest();
+  const vec: number[] = [];
+  for (let i = 0; i < 1536; i++) {
+    const byte = hash[i % hash.length];
+    vec.push((byte - 128) / 128);
+  }
+  return vec;
+}
+
 export async function generateText(options: AIOptions): Promise<AIResponse> {
   const {
     systemPrompt,
+    userPrompt,
     messages,
     temperature = 0.7,
     maxTokens = 2000,
@@ -61,7 +74,7 @@ export async function generateText(options: AIOptions): Promise<AIResponse> {
   const groqModel = model === 'deep' ? DEFAULT_DEEP : DEFAULT_FAST;
 
   // Build messages for Groq (OpenAI-compatible format)
-  const groqMessages = [];
+  const groqMessages: Array<{ role: string; content: string; tool_call_id?: string }> = [];
   if (systemPrompt) {
     groqMessages.push({ role: 'system', content: systemPrompt });
   }
@@ -72,12 +85,16 @@ export async function generateText(options: AIOptions): Promise<AIResponse> {
       groqMessages.push({ role: m.role, content: m.content });
     }
   }
+  // If userPrompt provided, append it as a user message
+  if (userPrompt && !messages.some(m => m.role === 'user' && m.content === userPrompt)) {
+    groqMessages.push({ role: 'user', content: userPrompt });
+  }
 
   // Try Groq first (primary)
   if (groq) {
     try {
       const completion = await groq.chat.completions.create({
-        messages: groqMessages,
+        messages: groqMessages as any,
         model: groqModel,
         temperature,
         max_tokens: maxTokens,
@@ -119,9 +136,9 @@ export async function generateText(options: AIOptions): Promise<AIResponse> {
         model: model === 'deep' ? 'claude-3-5-sonnet-20241022' : 'claude-3-haiku-20240307',
         system: systemPrompt || '',
         messages: messages.map(m => ({
-          role: m.role === 'tool' ? 'user' : m.role,
+          role: (m.role === 'tool' || m.role === 'system') ? 'user' : m.role,
           content: m.content
-        })),
+        })) as any,
         max_tokens: maxTokens,
         temperature
       });
@@ -165,7 +182,7 @@ export async function* generateTextStream(options: AIOptions): AsyncGenerator<st
   if (groq) {
     try {
       const stream = await groq.chat.completions.create({
-        messages: groqMessages,
+        messages: groqMessages as any,
         model: groqModel,
         temperature,
         max_tokens: maxTokens,
